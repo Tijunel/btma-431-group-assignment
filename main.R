@@ -1,4 +1,9 @@
-# Copyright ...
+# Copyright Justin Tijunelis, Luke Fouad, Terrin Mathews, Jessica Huong, Faith Nayko
+# Completed November X, 2021
+
+# Library Imports
+library('rvest')
+library('dplyr')
 
 #' Q1 - Sony Interactive Entertainment produces games with the highest reviews.
 #' Subquestion - Sony's action games are the best rated among all of their games.
@@ -13,16 +18,76 @@
 # Q3 website: https://www.kaggle.com/vinodsunny1/insight-s-of-gaming-world/data
 # Download data everytime we run and don't save it. 
 
-# FINISH ALL CODE FOR DECEMBER 8
-function fetchTop100Games() {
-  # TODO
-  # Create dataframe for the top 100 games and their respective reviews
+parseGameDetails <- function(url) {
+  # Get the details of the game
+  gamePage <- read_html(url)
+  # Get the user score
+  userScore <- html_text(html_node(gamePage, "div.userscore_wrap > div.metascore_w.user"))
+  userScore <- as.numeric(userScore)  
+  # Get the number of reviewers
+  reviewers <- html_text(html_node(gamePage, "div.userscore_wrap > div.summary > p > span.count > a"))
+  reviewers <- gsub("Ratings", "", reviewers)
+  reviewers <- as.numeric(reviewers)
+  # Genres
+  genres <- html_text(html_nodes(gamePage, "li.product_genre > span.data"))
+  # Publishers
+  publishers <- html_text(html_nodes(gamePage, "li.publisher > span.data > a"))
+  for (i in 1:length(publishers)) {
+    publishers[i] <- trimws(publishers[i])
+  }
+  # Ratings
+  rating <- html_text(html_node(gamePage, "li.product_rating > span.data"))
+  return (list(userScore, reviewers, genres, publishers, rating))
 }
 
-function fetchNorthAmericanGameSales() {
-  # TODO
-  # Create a dataframe that contains the file shown on the website
+parseGameEntry <- function(baseURL, entry) {
+  # Get the rank
+  rank <- html_text(html_node(entry, "span.numbered"))
+  rank <- trimws(rank)
+  rank <- as.numeric(rank)
+  # Get the meta score
+  metaScore <- html_text(html_node(entry, "div.metascore_w"))
+  metaScore <- trimws(metaScore)
+  metaScore <- as.numeric(metaScore)
+  # Name
+  name <- html_text(html_node(entry, "a.title > h3"))
+  # Release date
+  releaseDate <- html_text(html_node(entry, "div.clamp-details > span"))
+  releaseDate <- as.Date(releaseDate, format="%B %d, %Y")
+  # Details URL
+  detailsURL <- paste(baseURL, html_attr(html_node(entry, "a.title"), "href"), sep="")
+  
+  # Get the game details
+  details <- parseGameDetails(detailsURL)
+  df <- data.frame(
+    rank = rank, 
+    name = name,
+    metaScore = metaScore,
+    releaseDate = releaseDate, 
+    userScore = details[[1]],
+    reviewers = details[[2]],
+    rating = details[[5]],
+    stringsAsFactors = FALSE
+  )
+  df$genres <- list(details[[3]])
+  df$publishers <- list(details[[4]])
+  
+  return (df)
 }
+
+getTopGames <- function(url) {
+  page <- read_html(url)
+  gameElements <- html_nodes(page, ".clamp-summary-wrap")
+  gameEntries <- data.frame()
+  baseURL <- "https://www.metacritic.com"
+  for (entry in gameElements) {
+    gameEntries <- rbind(gameEntries, parseGameEntry(baseURL, entry))
+    Sys.sleep(0.2)
+  }
+  return (gameEntries)
+}
+
+getTopGames("https://www.metacritic.com/browse/games/score/metascore/all")
 
 # Part 2
 # Do data analysis
