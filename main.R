@@ -5,12 +5,15 @@
 library('rvest')
 library('dplyr')
 
-#' Q1 - Sony Interactive Entertainment produces games with the highest reviews.
-#' Subquestion - Sony's action games are the best rated among all of their games.
+# Configuration
+setwd("/Users/justintijunelis/Documents/GitHub.nosync/btma-431-group-assignment")
+
+#' Q1 - Rockstar Games produces games with the highest reviews.
+#' Subquestion - Rockstar's action games are the best rated among all of their games.
 #' Q2 - The top rated games are released in winter.
-#' Q3 - North America sells the most videogames.
-#' Subquestion - XBox is the most popular platform in north america all-time.
-#' Subquestion - Sports games are the most played games on XBox all-time.
+#' Q3 - North America sells the most video games.
+#' Subquestion - Xbox is the most popular platform in north america all-time.
+#' Subquestion - Sports games are the most played games on Xbox all-time.
 
 # Part 1
 # Fetch data
@@ -18,15 +21,18 @@ library('dplyr')
 # Q3 website: https://www.kaggle.com/vinodsunny1/insight-s-of-gaming-world/data
 # Download data everytime we run and don't save it. 
 
+#### Q1 Data Fetching ##########################################################
+
 parseGameDetails <- function(url) {
   # Get the details of the game
   gamePage <- read_html(url)
   # Get the user score
+  print(gamePage)
   userScore <- html_text(html_node(gamePage, "div.userscore_wrap > div.metascore_w.user"))
   userScore <- as.numeric(userScore)  
   # Get the number of reviewers
   reviewers <- html_text(html_node(gamePage, "div.userscore_wrap > div.summary > p > span.count > a"))
-  reviewers <- gsub("Ratings", "", reviewers)
+  reviewers <- gsub(" Ratings", "", reviewers)
   reviewers <- as.numeric(reviewers)
   # Genres
   genres <- html_text(html_nodes(gamePage, "li.product_genre > span.data"))
@@ -80,14 +86,29 @@ getTopGames <- function(url) {
   gameElements <- html_nodes(page, ".clamp-summary-wrap")
   gameEntries <- data.frame()
   baseURL <- "https://www.metacritic.com"
+  print(gameElements)
   for (entry in gameElements) {
     gameEntries <- rbind(gameEntries, parseGameEntry(baseURL, entry))
-    Sys.sleep(0.2)
+    Sys.sleep(0.2) # Let's be polite
   }
   return (gameEntries)
 }
 
-getTopGames("https://www.metacritic.com/browse/games/score/metascore/all")
+if (!file.exists("top100GameData.rda")) {
+  url <- "https://www.metacritic.com/browse/games/score/metascore/all"
+  top100GameData <- getTopGames(url)
+  save(top100GameData, file="top100GameData.rda")
+} else {
+  load("top100GameData.rda")
+}
+
+print(top100GameData)
+
+# Let's store the data for now
+
+#### Q1 Data Fetching ##########################################################
+
+
 
 # Part 2
 # Do data analysis
