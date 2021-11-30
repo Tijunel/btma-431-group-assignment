@@ -118,13 +118,44 @@ getPublisherStats <- function(top100Games) {
 }
 
 groupedPublishers <- getPublisherStats(top100GameData)
-print(groupedPublishers)
+
+# TODO: Answer the questions with the data. Make sure to check how to compare t-test with different sample sizes.
+# TODO: Create a regression and find the variable with the highest coefficient for predicting the user score.
+# TODO: Perform a chi square test to check if the meta score and user score are independent for the dataset.
 
 ### Question 1 - Sub Question ##################################################
 #' Null Hypothesis: Rockstar's action games are the best rated among all of their games.
 
+getGenreStats <- function(top100Games) {
+  topGamesIndexed <- top100Games %>% separate_rows(genres, sep = "\n")
+  topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "publishers"))
+  stats <- topGamesIndexed %>%
+            group_by(genres) %>%
+            mutate(
+              mean_ratings = mean(userScore),
+              count_games = n(),
+              mean_meta = mean(metaScore),
+            ) %>%
+            summarise_if(is.numeric, mean)
+  return (stats)
+}
+
+groupedGenres <- getGenreStats(top100GameData)
+print(groupedGenres)
+
+# TODO: Answer the question, perform a t-test, be sure to account for different sample size. 
+# TODO: Write a description describing the process and then results of the tests. 
+
 ### Question 2 #################################################################
 #' Null Hypothesis: The top rated games from the top 100 list on meta critic were released in winter.
+
+getSeasonScores <- function(top100Games) {
+  # TODO: Group the games by seasons (use a custom implementation to find the season based on the date)
+  # TODO: Get aggregate score statistics for each season (average meta score, average user score, number of releases in the season)
+}
+
+# TODO: Compare the seasons using a t-test (or maybe something better?)
+# TODO: Write description for process and the results we found
 
 ### Question 3 #################################################################
 #' Null Hypothesis: North America sells the most video games.
