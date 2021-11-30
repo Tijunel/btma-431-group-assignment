@@ -24,6 +24,12 @@ parseGameDetails <- function(url) {
   reviewers <- as.numeric(reviewers)
   # Genres
   genres <- html_text(html_nodes(gamePage, "li.product_genre > span.data"))
+  for (i in 1:length(genres)) {
+    if (grepl("Action", genres[i])) {
+      genres[i] <- "Action"
+    }
+  }
+  genres <- unique(genres)
   # Publishers
   publishers <- html_text(html_nodes(gamePage, "li.publisher > span.data > a"))
   for (i in 1:length(publishers)) {
@@ -76,26 +82,39 @@ parseGameEntry <- function(baseURL, entry) {
   return (df)
 }
 
-getTopGames <- function(url) {
-  page <- read_html(url)
-  gameElements <- html_nodes(page, ".clamp-summary-wrap")
+getTopGames <- function(url, pages) {
   gameEntries <- data.frame()
-  baseURL <- "https://www.metacritic.com"
-  for (entry in gameElements) {
-    gameEntries <- rbind(gameEntries, parseGameEntry(baseURL, entry))
-    Sys.sleep(1.0) # Let's be polite
-  }
-  return (gameEntries)
+  out <- tryCatch({
+      save(gameEntries, file="topGameData.rda")
+      for (i in 0:pages) { # Get the top 4000 games. 
+        page <- read_html(paste(url, "?page=", 0, sep=''))
+        gameElements <- html_nodes(page, ".clamp-summary-wrap")
+        baseURL <- "https://www.metacritic.com"
+        for (entry in gameElements) {
+          gameEntries <- rbind(gameEntries, parseGameEntry(baseURL, entry))
+          Sys.sleep(1.0) # Let's be polite
+        }
+        gameEntries <- na.omit(gameEntries)
+        save(gameEntries, file="topGameData.rda")
+      }
+    },
+    error = function(e) {
+      save(gameEntries, file="topGameData.rda")
+      print(e)
+    },
+    finally = {
+      save(gameEntries, file="topGameData.rda")
+      print("Finished!")
+    }
+  )
 }
 
-if (!file.exists("top100GameData.rda")) {
+# Un-comment to see the auto data fetcher in action
+if (!file.exists("topGameData.rda")) {
   url <- "https://www.metacritic.com/browse/games/score/metascore/all"
-  top100GameData <- getTopGames(url)
-  top100GameData <- na.omit(top100GameData)
-  save(top100GameData, file="top100GameData.rda")
-} else {
-  load("top100GameData.rda")
+  getTopGames(url, pages = 40) # Gets the top 40 pages of data (4000 games)
 }
+load("topGameData.rda")
 
 #### Q1 Data Fetching ##########################################################
 
@@ -104,8 +123,8 @@ if (!file.exists("top100GameData.rda")) {
 #' Null Hypothesis: Rockstar Games produces games with the highest user reviews.
 #' What is the greatest predictor of a high rating?
 
-getPublisherStats <- function(top100Games) {
-  topGamesIndexed <- top100Games %>% separate_rows(publishers, sep = "\n")
+getPublisherStats <- function(topGames) {
+  topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "genres"))
   stats <- topGamesIndexed %>% 
             group_by(publishers) %>%
@@ -118,7 +137,8 @@ getPublisherStats <- function(top100Games) {
   return (stats)
 }
 
-groupedPublishers <- getPublisherStats(top100GameData)
+# groupedPublishers <- getPublisherStats(topGameData)
+# print(groupedPublishers)
 
 #https://discuss.analyticsvidhya.com/t/how-to-add-a-column-to-a-data-frame-in-r/3278
 getSeason <- function(dates) {
@@ -135,56 +155,56 @@ getSeason <- function(dates) {
                   ifelse (d >= SS & d < FE, "Summer", "Fall")))
 }
 
-top100GameData <- mutate(top100GameData, releaseSeason = getSeason(top100GameData$releaseDate))
+topGameData <- mutate(topGameData, releaseSeason = getSeason(topGameData$releaseDate))
 
-top100GameData <- top100GameData %>% rowwise() %>% 
+topGameData <- topGameData %>% rowwise() %>% 
   mutate(primaryGenre = genres[[1]])
 
-top100GameData <- top100GameData %>% rowwise() %>% 
+topGameData <- topGameData %>% rowwise() %>% 
   mutate(primaryPublisher = publishers[[1]])
 
 # TODO: Create a regression and find the variable with the highest coefficient for predicting the user score.
-metaRegression <- function(top100GameData) {
+metaRegression <- function(topGameData) {
   
-  sData <- select(top100GameData, userScore, releaseSeason)
+  sData <- select(topGameData, userScore, releaseSeason)
   names(sData) <- c("Score", "Season")
   print(summary(lm(Score ~ ., data = sData)))
   
-  gData <- select(top100GameData, userScore, primaryGenre)
+  gData <- select(topGameData, userScore, primaryGenre)
   names(gData) <- c("Score", "Genre")
   print(summary(lm(Score ~ ., data = gData)))
   
-  pData <- select(top100GameData, userScore, primaryPublisher)
+  pData <- select(topGameData, userScore, primaryPublisher)
   names(pData) <- c("Score", "Publisher")
   print(summary(lm(Score ~ ., data = pData)))
   
-  mData <- select(top100GameData, userScore, metaScore)
+  mData <- select(topGameData, userScore, metaScore)
   names(mData) <- c("Score", "Meta")
   print(summary(lm(Score ~ ., data = mData)))
   
 }
 
-metaRegression(top100GameData)
+metaRegression(topGameData)
 
 # TODO: Answer the questions with the data. Make sure to check how to compare t-test with different sample sizes.
 
-testPubRatings <- function(top100GameData, pub1, pub2){
+testPubRatings <- function(topGameData, pub1, pub2){
   
-  pubRatings1 <- subset(top100GameData, primaryPublisher == pub1, select = c(userScore, metaScore))
-  pubRatings2 <- subset(top100GameData, primaryPublisher == pub2, select = c(userScore, metaScore))
+  pubRatings1 <- subset(topGameData, primaryPublisher == pub1, select = c(userScore, metaScore))
+  pubRatings2 <- subset(topGameData, primaryPublisher == pub2, select = c(userScore, metaScore))
   
   print(t.test(pubRatings1$userScore, pubRatings2$userScore))
   print(t.test(pubRatings1$metaScore, pubRatings2$metaScore))
   
   }
 
-testPubRatings(top100GameData, "Rockstar Games", "Nintendo")
+testPubRatings(topGameData, "Rockstar Games", "Nintendo")
 
 ### Question 1 - Sub Question ##################################################
-#' Null Hypothesis: Rockstar's action games are the best rated among all of their games.
+#' Null Hypothesis: Genres receive equal ratings, there is no difference in ratings between 
 
-getGenreStats <- function(top100Games) {
-  topGamesIndexed <- top100Games %>% separate_rows(genres, sep = "\n")
+getGenreStats <- function(topGames) {
+  topGamesIndexed <- topGames %>% separate_rows(genres, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "publishers"))
   stats <- topGamesIndexed %>%
             group_by(genres) %>%
@@ -194,12 +214,12 @@ getGenreStats <- function(top100Games) {
               mean_meta = mean(metaScore),
             ) %>%
             summarise_if(is.numeric, mean)
-  # GET ROCKSTAR
   return (stats)
 }
 
-groupedGenres <- getGenreStats(top100GameData)
-print(groupedGenres)
+groupedGenres <- getGenreStats(topGameData)
+oneway.test(mean_ratings ~ genres, data = groupedGenres) # TODO: Figure out what this actually does
+
 
 # TODO: Answer the question, perform a t-test, be sure to account for different sample size. 
 
@@ -208,7 +228,7 @@ print(groupedGenres)
 ### Question 2 #################################################################
 #' Null Hypothesis: The top rated games from the top 100 list on meta critic were released in winter.
 
-getSeasonScores <- function(top100Games) {
+getSeasonScores <- function(topGames) {
   # TODO: Group the games by seasons (use a custom implementation to find the season based on the date)
   # TODO: Get aggregate score statistics for each season (average meta score, average user score, number of releases in the season)
 }

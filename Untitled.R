@@ -1,1 +1,0 @@
-print(mean(rnorm(1000, 900, 200)))
