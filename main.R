@@ -4,6 +4,7 @@
 # Library Imports
 library('rvest')
 library('dplyr')
+library('tidyr')
 
 # Configuration
 setwd("/Users/justintijunelis/Documents/GitHub.nosync/btma-431-group-assignment")
@@ -14,7 +15,6 @@ parseGameDetails <- function(url) {
   # Get the details of the game
   gamePage <- read_html(url)
   # Get the user score
-  print(gamePage)
   userScore <- html_text(html_node(gamePage, "div.userscore_wrap > div.metascore_w.user"))
   userScore <- as.numeric(userScore)  
   # Get the number of reviewers
@@ -26,6 +26,13 @@ parseGameDetails <- function(url) {
   # Publishers
   publishers <- html_text(html_nodes(gamePage, "li.publisher > span.data > a"))
   for (i in 1:length(publishers)) {
+    if (publishers[i] == "EA Games" || publishers[i] == "EA Sports") {
+      publishers <- c("Electronic Arts")
+      break
+    } else if (publishers[i] == "Rockstar San Diego") {
+      publishers <- c("Rockstar Games")
+      break
+    }
     publishers[i] <- trimws(publishers[i])
   }
   # Ratings
@@ -73,10 +80,9 @@ getTopGames <- function(url) {
   gameElements <- html_nodes(page, ".clamp-summary-wrap")
   gameEntries <- data.frame()
   baseURL <- "https://www.metacritic.com"
-  print(gameElements)
   for (entry in gameElements) {
     gameEntries <- rbind(gameEntries, parseGameEntry(baseURL, entry))
-    Sys.sleep(0.2) # Let's be polite
+    Sys.sleep(1.0) # Let's be polite
   }
   return (gameEntries)
 }
@@ -84,6 +90,7 @@ getTopGames <- function(url) {
 if (!file.exists("top100GameData.rda")) {
   url <- "https://www.metacritic.com/browse/games/score/metascore/all"
   top100GameData <- getTopGames(url)
+  top100GameData <- na.omit(top100GameData)
   save(top100GameData, file="top100GameData.rda")
 } else {
   load("top100GameData.rda")
@@ -94,12 +101,25 @@ if (!file.exists("top100GameData.rda")) {
 
 ### Question 1 #################################################################
 #' Null Hypothesis: Rockstar Games produces games with the highest user reviews.
-#' 
-#' 
+#' What is the greatest predictor of a high rating?
 
-groupGamesByPublisher <- function(top100GameData) {
-  
+getPublisherStats <- function(top100Games) {
+  topGamesIndexed <- top100Games %>% separate_rows(publishers, sep = "\n")
+  topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "genres"))
+  stats <- topGamesIndexed %>% 
+            group_by(publishers) %>%
+            mutate(
+              mean_ratings = mean(userScore),
+              count_games = n(),
+              mean_meta = mean(metaScore)
+            ) %>%
+            summarise_if(is.numeric, mean)
+  return (stats)
 }
+
+groupedPublishers <- getPublisherStats(top100GameData)
+print(groupedPublishers)
+
 ### Question 1 - Sub Question ##################################################
 #' Null Hypothesis: Rockstar's action games are the best rated among all of their games.
 
@@ -113,7 +133,7 @@ groupGamesByPublisher <- function(top100GameData) {
 #' Null Hypothesis: Xbox is the most popular platform in North America all-time.
 
 ### Question 3 - Sub Question 2 ################################################
-#' Null Hypothesis: Sports games are the most played games on Xbox all-time.
+#' Null Hypothesis: What is the greatest predictor of sales for a game. 
 
 # Part 2
 # Do data analysis
