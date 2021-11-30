@@ -91,24 +91,24 @@ getTopGames <- function(url, pages) {
         baseURL <- "https://www.metacritic.com"
         for (entry in gameElements) {
           gameEntries <- rbind(gameEntries, parseGameEntry(baseURL, entry))
-          Sys.sleep(0.5) # Let's be polite
+          Sys.sleep(1.0) # Let's be polite
         }
+        gameEntries <- na.omit(gameEntries)
         save(gameEntries, file="topGameData.rda")
       }
-      return (gameEntries)
     },
     error = function(e) {
+      save(gameEntries, file="topGameData.rda")
       print(e)
-      return(gameEntries)
     },
     finally = {
+      save(gameEntries, file="topGameData.rda")
       print("Finished!")
     }
   )
-  return (out)
 }
 
-# Uncomment to see the auto data fetcher in action
+# Un-comment to see the auto data fetcher in action
 if (!file.exists("topGameData.rda")) {
   url <- "https://www.metacritic.com/browse/games/score/metascore/all"
   getTopGames(url, pages = 40) # Gets the top 40 pages of data (4000 games)
@@ -136,7 +136,8 @@ getPublisherStats <- function(topGames) {
   return (stats)
 }
 
-groupedPublishers <- getPublisherStats(topGameData)
+# groupedPublishers <- getPublisherStats(topGameData)
+# print(groupedPublishers)
 
 # TODO: Answer the questions with the data. Make sure to check how to compare t-test with different sample sizes.
 # TODO: Create a regression and find the variable with the highest coefficient for predicting the user score.
@@ -160,9 +161,10 @@ getGenreStats <- function(topGames) {
 }
 
 groupedGenres <- getGenreStats(topGameData)
-print(groupedGenres)
+oneway.test(mean_ratings ~ genres, data = groupedGenres) # TODO: Figure out what this actually does
 
-# TODO: Answer the question, perform a t-test, be sure to account for different sample size. 
+
+# TODO: Answer the question, perform a oav, be sure to account for different sample size. 
 # TODO: Write a description describing the process and then results of the tests. 
 
 ### Question 2 #################################################################
