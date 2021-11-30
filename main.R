@@ -181,22 +181,18 @@ metaRegression <- function(topGameData) {
   mData <- select(topGameData, userScore, metaScore)
   names(mData) <- c("Score", "Meta")
   print(summary(lm(Score ~ ., data = mData)))
-  
 }
 
 metaRegression(topGameData)
 
 # TODO: Answer the questions with the data. Make sure to check how to compare t-test with different sample sizes.
 
-testPubRatings <- function(topGameData, pub1, pub2){
-  
+testPubRatings <- function(topGameData, pub1, pub2) {
   pubRatings1 <- subset(topGameData, primaryPublisher == pub1, select = c(userScore, metaScore))
   pubRatings2 <- subset(topGameData, primaryPublisher == pub2, select = c(userScore, metaScore))
-  
   print(t.test(pubRatings1$userScore, pubRatings2$userScore))
   print(t.test(pubRatings1$metaScore, pubRatings2$metaScore))
-  
-  }
+}
 
 testPubRatings(topGameData, "Rockstar Games", "Nintendo")
 
@@ -217,12 +213,15 @@ getGenreStats <- function(topGames) {
   return (stats)
 }
 
+testGenreEquivalence <- function(genreData) {
+  # TODO: Actually implement this
+  oneway.test(mean_ratings ~ genres, data = groupedGenres)
+}
+
 groupedGenres <- getGenreStats(topGameData)
-oneway.test(mean_ratings ~ genres, data = groupedGenres) # TODO: Figure out what this actually does
 
-
+# TODO: Create a visualization of genre prevalence. 
 # TODO: Answer the question, perform a t-test, be sure to account for different sample size. 
-
 # TODO: Write a description describing the process and then results of the tests. 
 
 ### Question 2 #################################################################
