@@ -8,19 +8,6 @@ library('dplyr')
 # Configuration
 setwd("/Users/justintijunelis/Documents/GitHub.nosync/btma-431-group-assignment")
 
-#' Q1 - Rockstar Games produces games with the highest reviews.
-#' Subquestion - Rockstar's action games are the best rated among all of their games.
-#' Q2 - The top rated games are released in winter.
-#' Q3 - North America sells the most video games.
-#' Subquestion - Xbox is the most popular platform in north america all-time.
-#' Subquestion - Sports games are the most played games on Xbox all-time.
-
-# Part 1
-# Fetch data
-# Q1/Q2 website: page_url = 'https://www.metacritic.com/browse/games/score/metascore/all/ps4/filtered?view=detailed'
-# Q3 website: https://www.kaggle.com/vinodsunny1/insight-s-of-gaming-world/data
-# Download data everytime we run and don't save it. 
-
 #### Q1 Data Fetching ##########################################################
 
 parseGameDetails <- function(url) {
@@ -102,13 +89,31 @@ if (!file.exists("top100GameData.rda")) {
   load("top100GameData.rda")
 }
 
-print(top100GameData)
-
-# Let's store the data for now
-
 #### Q1 Data Fetching ##########################################################
 
 
+### Question 1 #################################################################
+#' Null Hypothesis: Rockstar Games produces games with the highest user reviews.
+#' 
+#' 
+
+groupGamesByPublisher <- function(top100GameData) {
+  
+}
+### Question 1 - Sub Question ##################################################
+#' Null Hypothesis: Rockstar's action games are the best rated among all of their games.
+
+### Question 2 #################################################################
+#' Null Hypothesis: The top rated games from the top 100 list on meta critic were released in winter.
+
+### Question 3 #################################################################
+#' Null Hypothesis: North America sells the most video games.
+
+### Question 3 - Sub Question 1 ################################################
+#' Null Hypothesis: Xbox is the most popular platform in North America all-time.
+
+### Question 3 - Sub Question 2 ################################################
+#' Null Hypothesis: Sports games are the most played games on Xbox all-time.
 
 # Part 2
 # Do data analysis
