@@ -137,6 +137,7 @@ getGenreStats <- function(top100Games) {
               mean_meta = mean(metaScore),
             ) %>%
             summarise_if(is.numeric, mean)
+  # GET ROCKSTAR
   return (stats)
 }
 
