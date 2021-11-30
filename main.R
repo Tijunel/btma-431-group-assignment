@@ -5,6 +5,7 @@
 library('rvest')
 library('dplyr')
 library('tidyr')
+library('purrr')
 
 # Configuration
 setwd("/Users/justintijunelis/Documents/GitHub.nosync/btma-431-group-assignment")
@@ -119,9 +120,65 @@ getPublisherStats <- function(top100Games) {
 
 groupedPublishers <- getPublisherStats(top100GameData)
 
-# TODO: Answer the questions with the data. Make sure to check how to compare t-test with different sample sizes.
+#https://discuss.analyticsvidhya.com/t/how-to-add-a-column-to-a-data-frame-in-r/3278
+getSeason <- function(dates) {
+  WS <- as.Date("2012-12-21", format = "%Y-%m-%d") # Winter Solstice
+  SE <- as.Date("2012-3-20",  format = "%Y-%m-%d") # Spring Equinox
+  SS <- as.Date("2012-6-20",  format = "%Y-%m-%d") # Summer Solstice
+  FE <- as.Date("2012-9-22",  format = "%Y-%m-%d") # Fall Equinox
+  
+  # Convert dates from any year to 2012 dates
+  d <- as.Date(strftime(dates, format="2012-%m-%d"))
+  
+  ifelse (d >= WS | d < SE, "Winter",
+          ifelse (d >= SE & d < SS, "Spring",
+                  ifelse (d >= SS & d < FE, "Summer", "Fall")))
+}
+
+top100GameData <- mutate(top100GameData, releaseSeason = getSeason(top100GameData$releaseDate))
+
+top100GameData <- top100GameData %>% rowwise() %>% 
+  mutate(primaryGenre = genres[[1]])
+
+top100GameData <- top100GameData %>% rowwise() %>% 
+  mutate(primaryPublisher = publishers[[1]])
+
 # TODO: Create a regression and find the variable with the highest coefficient for predicting the user score.
-# TODO: Perform a chi square test to check if the meta score and user score are independent for the dataset.
+metaRegression <- function(top100GameData) {
+  
+  sData <- select(top100GameData, userScore, releaseSeason)
+  names(sData) <- c("Score", "Season")
+  print(summary(lm(Score ~ ., data = sData)))
+  
+  gData <- select(top100GameData, userScore, primaryGenre)
+  names(gData) <- c("Score", "Genre")
+  print(summary(lm(Score ~ ., data = gData)))
+  
+  pData <- select(top100GameData, userScore, primaryPublisher)
+  names(pData) <- c("Score", "Publisher")
+  print(summary(lm(Score ~ ., data = pData)))
+  
+  mData <- select(top100GameData, userScore, metaScore)
+  names(mData) <- c("Score", "Meta")
+  print(summary(lm(Score ~ ., data = mData)))
+  
+}
+
+metaRegression(top100GameData)
+
+# TODO: Answer the questions with the data. Make sure to check how to compare t-test with different sample sizes.
+
+testPubRatings <- function(top100GameData, pub1, pub2){
+  
+  pubRatings1 <- subset(top100GameData, primaryPublisher == pub1, select = c(userScore, metaScore))
+  pubRatings2 <- subset(top100GameData, primaryPublisher == pub2, select = c(userScore, metaScore))
+  
+  print(t.test(pubRatings1$userScore, pubRatings2$userScore))
+  print(t.test(pubRatings1$metaScore, pubRatings2$metaScore))
+  
+  }
+
+testPubRatings(top100GameData, "Rockstar Games", "Nintendo")
 
 ### Question 1 - Sub Question ##################################################
 #' Null Hypothesis: Rockstar's action games are the best rated among all of their games.
@@ -145,6 +202,7 @@ groupedGenres <- getGenreStats(top100GameData)
 print(groupedGenres)
 
 # TODO: Answer the question, perform a t-test, be sure to account for different sample size. 
+
 # TODO: Write a description describing the process and then results of the tests. 
 
 ### Question 2 #################################################################
