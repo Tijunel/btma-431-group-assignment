@@ -83,27 +83,27 @@ parseGameEntry <- function(baseURL, entry) {
 }
 
 getTopGames <- function(url, pages) {
-  gameEntries <- data.frame()
+  topGameData <- data.frame()
   out <- tryCatch({
-      save(gameEntries, file="topGameData.rda")
+      save(topGameData, file="topGameData.rda")
       for (i in 0:pages) { # Get the top 4000 games. 
         page <- read_html(paste(url, "?page=", 0, sep=''))
         gameElements <- html_nodes(page, ".clamp-summary-wrap")
         baseURL <- "https://www.metacritic.com"
         for (entry in gameElements) {
-          gameEntries <- rbind(gameEntries, parseGameEntry(baseURL, entry))
-          Sys.sleep(1.0) # Let's be polite
+          topGameData <- rbind(topGameData, parseGameEntry(baseURL, entry))
+          Sys.sleep(5.0) # Let's be polite
         }
-        gameEntries <- na.omit(gameEntries)
-        save(gameEntries, file="topGameData.rda")
+        topGameData <- na.omit(topGameData)
+        save(topGameData, file="topGameData.rda")
       }
     },
     error = function(e) {
-      save(gameEntries, file="topGameData.rda")
+      save(topGameData, file="topGameData.rda")
       print(e)
     },
     finally = {
-      save(gameEntries, file="topGameData.rda")
+      save(topGameData, file="topGameData.rda")
       print("Finished!")
     }
   )
