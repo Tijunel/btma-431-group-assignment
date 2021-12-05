@@ -4,10 +4,6 @@
   #Subquestion 2.5: which variable affects sales in north america 
 #nova test (same as t test but for multiple samples, null hypothesis has to be that means are roughly equivalent)
 
-install.packages("rvest")
-install.packages("dplyr")
-install.packages("ggplot2")
-
 library(rvest)
 library(dplyr)
 library(ggplot2)
@@ -77,11 +73,11 @@ qplot(x = rownames, y = revenue.data$Mean)
 #stack data to be able to run ANOVA test
 df_transpose = t(revenue.data)
 transpose <- data.frame(df_transpose)
-stacked.data<- stack(transpose)
+stacked.data <- stack(transpose)
 Anova.results <- aov(values ~ ind, data = stacked.data)
 
 #ANOVA Test Results:
-# summary(Anova.results)
+print(summary(Anova.results))
 # Df Sum Sq Mean Sq F value Pr(>F)    
 # ind          5   6711  1342.2   465.2 <2e-16 ***
 #   Residuals   24     69     2.9                   

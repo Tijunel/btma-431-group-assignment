@@ -6,9 +6,11 @@ library('rvest')
 library('dplyr')
 library('tidyr')
 library('purrr')
+library('tidyverse')
+library('XML')
 
 # Configuration
-setwd("/Users/justintijunelis/Documents/GitHub.nosync/btma-431-group-assignment")
+setwd("/Users/Justin/Documents/GitHub/btma-431-group-assignment")
 
 #### Q1 Data Fetching ##########################################################
 
@@ -87,12 +89,12 @@ getTopGames <- function(url, pages) {
   out <- tryCatch({
       save(topGameData, file="topGameData.rda")
       for (i in 0:pages) { # Get the top 4000 games. 
-        page <- read_html(paste(url, "?page=", 0, sep=''))
+        page <- read_html(paste(url, "?page=", i, sep=''))
         gameElements <- html_nodes(page, ".clamp-summary-wrap")
         baseURL <- "https://www.metacritic.com"
         for (entry in gameElements) {
           topGameData <- rbind(topGameData, parseGameEntry(baseURL, entry))
-          Sys.sleep(5.0) # Let's be polite
+          Sys.sleep(1.0) # Let's be polite
         }
         topGameData <- na.omit(topGameData)
         save(topGameData, file="topGameData.rda")
@@ -120,105 +122,106 @@ load("topGameData.rda")
 
 
 ### Question 1 #################################################################
-#' Null Hypothesis: Rockstar Games produces games with the highest user reviews.
-#' What is the greatest predictor of a high rating?
-
+#' Which publisher has the highest rated games?
+#' Null Hypothesis: Publisher X and Publisher Y produce games with equal user and meta scores.
 getPublisherStats <- function(topGames) {
   topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "genres"))
-  stats <- topGamesIndexed %>% 
-            group_by(publishers) %>%
-            mutate(
-              mean_ratings = mean(userScore),
-              count_games = n(),
-              mean_meta = mean(metaScore)
-            ) %>%
-            summarise_if(is.numeric, mean)
-  return (stats)
+  stats <- topGamesIndexed %>% group_by(publishers) 
 }
 
-# groupedPublishers <- getPublisherStats(topGameData)
-# print(groupedPublishers)
+# Perform a regression on the userScore dependent on publishers
+publisherStats <- getPublisherStats(topGameData)
+publisherUserScoreRegression <- lm(userScore ~ publishers, data = publisherStats)
+print(summary(publisherUserScoreRegression))
+# The publisher with the largest coefficient is Sony Interactive entertainment and VU Games (Each with a coefficient of 0.50)
+# The publisher with the lowest coefficient is SEGA (-1.53) Activision (-1.21).
 
-#https://discuss.analyticsvidhya.com/t/how-to-add-a-column-to-a-data-frame-in-r/3278
-getSeason <- function(dates) {
-  WS <- as.Date("2012-12-21", format = "%Y-%m-%d") # Winter Solstice
-  SE <- as.Date("2012-3-20",  format = "%Y-%m-%d") # Spring Equinox
-  SS <- as.Date("2012-6-20",  format = "%Y-%m-%d") # Summer Solstice
-  FE <- as.Date("2012-9-22",  format = "%Y-%m-%d") # Fall Equinox
-  
-  # Convert dates from any year to 2012 dates
-  d <- as.Date(strftime(dates, format="2012-%m-%d"))
-  
-  ifelse (d >= WS | d < SE, "Winter",
-          ifelse (d >= SE & d < SS, "Spring",
-                  ifelse (d >= SS & d < FE, "Summer", "Fall")))
-}
-
-topGameData <- mutate(topGameData, releaseSeason = getSeason(topGameData$releaseDate))
-
-topGameData <- topGameData %>% rowwise() %>% 
-  mutate(primaryGenre = genres[[1]])
-
-topGameData <- topGameData %>% rowwise() %>% 
-  mutate(primaryPublisher = publishers[[1]])
-
-# TODO: Create a regression and find the variable with the highest coefficient for predicting the user score.
-metaRegression <- function(topGameData) {
-  
-  sData <- select(topGameData, userScore, releaseSeason)
-  names(sData) <- c("Score", "Season")
-  print(summary(lm(Score ~ ., data = sData)))
-  
-  gData <- select(topGameData, userScore, primaryGenre)
-  names(gData) <- c("Score", "Genre")
-  print(summary(lm(Score ~ ., data = gData)))
-  
-  pData <- select(topGameData, userScore, primaryPublisher)
-  names(pData) <- c("Score", "Publisher")
-  print(summary(lm(Score ~ ., data = pData)))
-  
-  mData <- select(topGameData, userScore, metaScore)
-  names(mData) <- c("Score", "Meta")
-  print(summary(lm(Score ~ ., data = mData)))
-}
-
-metaRegression(topGameData)
-
-# TODO: Answer the questions with the data. Make sure to check how to compare t-test with different sample sizes.
+# Perform a regression on the metaScore dependent on publishers
+publisherMetaScoreRegression <- lm(metaScore ~ publishers, data = publisherStats)
+print(summary(publisherMetaScoreRegression))
 
 testPubRatings <- function(topGameData, pub1, pub2) {
-  pubRatings1 <- subset(topGameData, primaryPublisher == pub1, select = c(userScore, metaScore))
-  pubRatings2 <- subset(topGameData, primaryPublisher == pub2, select = c(userScore, metaScore))
-  print(t.test(pubRatings1$userScore, pubRatings2$userScore))
-  print(t.test(pubRatings1$metaScore, pubRatings2$metaScore))
+  pubRatings1 <- subset(q1Data, primaryPublisher == pub1, select = c(userScore, metaScore))
+  pubRatings2 <- subset(q1Data, primaryPublisher == pub2, select = c(userScore, metaScore))
+  print(t.test(pubRatings1$userScore, pubRatings2$userScore, mu=0.5, alternative="greater"))
+  print(t.test(pubRatings1$metaScore, pubRatings2$metaScore, mu=0.5, alternative="greater"))
 }
 
 testPubRatings(topGameData, "Rockstar Games", "Nintendo")
+# Null Hypothesis -> Rockstar Games and Nintendo produce games with equal user and meta score
+# The null hypothesis is for user scores false. Nintendo outcompetes Rockstar. 
+# The null hypothesis for meta scores is false. Rockstar outcompetes Nintendo.
+
+#' What is the greatest predictor of a high rating?
+#https://discuss.analyticsvidhya.com/t/how-to-add-a-column-to-a-data-frame-in-r/3278
+# getSeason <- function(dates) {
+#   WS <- as.Date("2012-12-21", format = "%Y-%m-%d") # Winter Solstice
+#   SE <- as.Date("2012-3-20",  format = "%Y-%m-%d") # Spring Equinox
+#   SS <- as.Date("2012-6-20",  format = "%Y-%m-%d") # Summer Solstice
+#   FE <- as.Date("2012-9-22",  format = "%Y-%m-%d") # Fall Equinox
+#   
+#   # Convert dates from any year to 2012 dates
+#   d <- as.Date(strftime(dates, format="2012-%m-%d"))
+#   
+#   ifelse (d >= WS | d < SE, "Winter",
+#           ifelse (d >= SE & d < SS, "Spring",
+#                   ifelse (d >= SS & d < FE, "Summer", "Fall")))
+# }
+# 
+# q1Data <- mutate(topGameData, releaseSeason = getSeason(topGameData$releaseDate))
+# q1Data <- q1Data %>% rowwise() %>% mutate(primaryGenre = genres[[1]])
+# q1Data <- q1Data %>% rowwise() %>% mutate(primaryPublisher = publishers[[1]])
+# 
+# # TODO: Create a regression and find the variable with the highest coefficient for predicting the user score.
+# metaRegression <- function(topGameData) {
+#   sData <- select(topGameData, userScore, releaseSeason)
+#   names(sData) <- c("Score", "Season")
+#   print(summary(lm(Score ~ ., data = sData)))
+#   
+#   gData <- select(topGameData, userScore, primaryGenre)
+#   names(gData) <- c("Score", "Genre")
+#   print(summary(lm(Score ~ ., data = gData)))
+#   
+#   pData <- select(topGameData, userScore, primaryPublisher)
+#   names(pData) <- c("Score", "Publisher")
+#   print(summary(lm(Score ~ ., data = pData)))
+#   
+#   mData <- select(topGameData, userScore, metaScore)
+#   names(mData) <- c("Score", "Meta")
+#   print(summary(lm(Score ~ ., data = mData)))
+# }
+# 
+# metaRegression(q1Data)
 
 ### Question 1 - Sub Question ##################################################
 #' Null Hypothesis: Genres receive equal ratings, there is no difference in ratings between 
-
 getGenreStats <- function(topGames) {
   topGamesIndexed <- topGames %>% separate_rows(genres, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "publishers"))
   stats <- topGamesIndexed %>%
-            group_by(genres) %>%
-            mutate(
-              mean_ratings = mean(userScore),
-              count_games = n(),
-              mean_meta = mean(metaScore),
-            ) %>%
-            summarise_if(is.numeric, mean)
+            group_by(genres) #%>%
+            # mutate(
+            #   mean_ratings = mean(userScore),
+            #   count_games = n(),
+            #   mean_meta = mean(metaScore),
+            # ) %>%
+            # summarise_if(is.numeric, mean)
   return (stats)
 }
 
-testGenreEquivalence <- function(genreData) {
-  # TODO: Actually implement this
-  oneway.test(mean_ratings ~ genres, data = groupedGenres)
-}
-
+# Test the genre equivalence
 groupedGenres <- getGenreStats(topGameData)
+testGenreEquivalence(groupedGenres)
+anovaTest <- aov(userScore ~ genres, data = groupedGenres)
+print(summary(anovaTest))
+# The p-value is less than 0.05, so we can conclude there are significant differences between the genres.
+# Therefore, the alternative hypothesis is true.
+
+# Create a regression
+reg <- lm(userScore ~ genres, data = groupedGenres)
+print(summary(reg))
+
 
 # TODO: Create a visualization of genre prevalence. 
 # TODO: Answer the question, perform a t-test, be sure to account for different sample size. 
@@ -257,25 +260,9 @@ getSeasonScores <- function(topGames) {
 #Subquestion 1: Xbox is the most used console in North America 
 #Subqeustion 2: Sports games are the most popular in north america 
 
-install.packages("dplyr")
-install.packages("tidyverse")
-install.packages("XML")
-install.packages("rvest")
-install.packages("tidyverse")
-install.packages("tidyr")
-
-
-library(tidyverse)
-library(XML)
-library(rvest)
-library(dplyr)
-library(tidyr)
-
 # set the working directory to where you downloaded archive.zip 
-setwd("C:/Users/jessi/Downloads")
 # unzip and load vgsales.csv into the environment. 
-vgsales <- read.csv(unz("archive.zip", "vgsales.csv"),
-                    stringsAsFactors = FALSE)
+vgsales <- read.csv(unz("archive.zip", "vgsales.csv"), stringsAsFactors = FALSE)
 
 # Subquestion 2: WiiU and PS has the same mean. 
 # create a new dataframe including both PS and WiiU 
