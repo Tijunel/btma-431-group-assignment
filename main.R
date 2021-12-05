@@ -1,5 +1,5 @@
 # Copyright Justin Tijunelis, Luke Fouad, Terrin Mathews, Jessica Huong, Faith Nayko
-# Completed November X, 2021
+# Completed December 5, 2021
 
 # Library Imports
 library('rvest')
