@@ -142,6 +142,9 @@ saveGenreData <- function() {
 
 # Make sure the meta score is the right scale
 topGameData$metaScore <- topGameData$metaScore / 10
+# Convert dates to posix time to analyze as a number
+dates <- as.POSIXct(topGameData$releaseDate, format = "%Y-%m-%d")
+topGameData$releaseDate <- as.numeric(dates)
 
 #### Q1 Data Fetching END ######################################################
 
@@ -173,15 +176,15 @@ for(i in seq(0, 30, by=10)) {
   print(paste("The publisher with the lowest Metascore with at least", i, "games is", worstMetaScore$publishers, "with a mean Metascore of", worstMetaScore$meanMetaScore))
 }
 
-publisherStats <- getPublisherStats(topGameData, 100)
-publisherStats <- within(publisherStats, rm("metaScore", "userScore", "reviewers", "count_games"))
+publisherStats <- getPublisherStats(topGameData, 200)
+publisherStats <- within(publisherStats, rm("metaScore", "userScore", "reviewers", "count_games", "releaseDate"))
 publisherStats <- publisherStats %>% rename("Mean Metascore" = meanMetaScore, "Mean User Score" = meanUserScore)
 plottingData <- gather(publisherStats, variable, value, -publishers)
 plt <- ggplot(plottingData, aes(x=publishers, y=value)) + 
   geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) + 
   ylim(0, 10) +
   guides(fill=guide_legend(title="Score Type")) +
-  labs(x="Publisher", y="Mean User Score", title="Mean User Score for publishers with 100+ games") 
+  labs(x="Publisher", y="Mean Score", title="Mean scores for publishers with 200+ games") 
 print(plt)
 
 ### Sub Question 1 #############################################################
@@ -195,29 +198,47 @@ testPublisherRatings <- function(topGameData, pub1, pub2) {
   pubRatings1 <- subset(topGameData, publishers == pub1, select = c(userScore, metaScore))
   pubRatings2 <- subset(topGameData, publishers == pub2, select = c(userScore, metaScore))
   print(t.test(pubRatings1$userScore, pubRatings2$userScore, mu=0.01, alternative="greater"))
-  print(t.test(pubRatings1$metaScore, pubRatings2$metaScore, mu=0.1, alternative="greater"))}
+  print(t.test(pubRatings1$metaScore, pubRatings2$metaScore, mu=0.1, alternative="greater"))
+}
 
 publisherData <- getPublisherData(topGameData)
 testPublisherRatings(publisherData, "Rockstar Games", "Nintendo")
 
 ### Question 2 #################################################################
 #' Which genre receives the highest review scores?
-getExplodedData <- function(topGames) {
+getGenreStats <- function(topGames, minGames) {
   topGamesIndexed <- topGames %>% separate_rows(genres, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating"))
-  topGamesIndexed <- topGamesIndexed %>% group_by(genres)
-  return (topGamesIndexed)
+  stats <- topGamesIndexed %>% group_by(genres) %>% filter(n() > minGames) %>% mutate(
+    meanUserScore = mean(userScore),
+    count_games = n(),
+    meanMetaScore = mean(metaScore)
+  ) %>%
+    summarise_if(is.numeric, mean)
+  stats <- na.omit(stats)
+  return (stats)
 }
 
-# Test the genre equivalence
+genreStats <- getGenreStats(topGameData, 800)
+genreStats <- within(genreStats, rm("metaScore", "userScore", "reviewers", "count_games", "publishers", "releaseDate"))
+genreStats <- genreStats %>% rename("Mean Metascore" = meanMetaScore, "Mean User Score" = meanUserScore)
+plottingData <- gather(genreStats, variable, value, -genres)
+plt <- ggplot(plottingData, aes(x=genres, y=value)) +
+  geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) +
+  ylim(0, 10) +
+  guides(fill=guide_legend(title="Score Type")) +
+  labs(x="Genre", y="Mean Score", title="Mean scores for genres with 800+ games")
+print(plt)
 
-# The p-value is less than 0.05, so we can conclude there are significant differences between the genres.
-# Therefore, the alternative hypothesis is true.
-
-# Create a regression
-genreStats <- getGenreStats(topGameData)
-reg <- lm(userScore ~ genres, data = genreStats)
-print(summary(reg))
+# Test the significance of the genre categorical 
+explodedGenre <- topGameData %>% rowwise() %>% mutate(genres = genres[[1]], publishers = publishers[[1]])
+explodedGenre <- within(explodedGenre, rm("rank", "name", "metaScore"))
+print(explodedGenre)
+fullModel <- lm(userScore ~ ., data = explodedGenre)
+print(summary(fullModel))
+topGamesWithoutGenre <- within(explodedGenre, rm("genres"))
+modelWithoutGenre <- lm(userScore ~ ., data=topGamesWithoutGenre)
+print(anova(fullModel, modelWithoutGenre))
 
 ################################################################################
 
