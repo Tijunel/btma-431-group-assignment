@@ -89,18 +89,23 @@ getTopGames <- function(url, pages) {
   out <- tryCatch({
       save(topGameData, file="topGameData.rda")
       for (i in 0:pages) {
-        page <- read_html(paste(url, "?page=", i, sep=''))
-        gameElements <- html_nodes(page, ".clamp-summary-wrap")
-        baseURL <- "https://www.metacritic.com"
-        for (entry in gameElements) {
-          tryCatch({
-            topGameData <- rbind(topGameData, parseGameEntry(baseURL, entry))
-          },
-          error = function(e) {
-            print("Something went wrong fetching data for this game")
-          })
-          Sys.sleep(0.2) # Let's be polite
-        }
+        tryCatch({
+          page <- read_html(paste(url, "?page=", i, sep=''))
+          gameElements <- html_nodes(page, ".clamp-summary-wrap")
+          baseURL <- "https://www.metacritic.com"
+          for (entry in gameElements) {
+            tryCatch({
+              topGameData <- rbind(topGameData, parseGameEntry(baseURL, entry))
+            },
+            error = function(e) {
+              print("Something went wrong fetching data for this game")
+            })
+            #Sys.sleep(0.2) # Let's be polite
+          }
+        },
+        error = function(e) {
+          print("Something went wrong fetching data for this game")
+        })
         topGameData <- na.omit(topGameData)
         save(topGameData, file="topGameData.rda")
       }
