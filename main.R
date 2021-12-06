@@ -10,7 +10,7 @@ library('tidyverse')
 library('XML')
 
 # Configuration
-setwd("/Users/Justin/Documents/GitHub/btma-431-group-assignment")
+# setwd("/Users/Justin/Documents/GitHub/btma-431-group-assignment")
 
 #### Q1 Data Fetching ##########################################################
 
@@ -88,13 +88,18 @@ getTopGames <- function(url, pages) {
   topGameData <- data.frame()
   out <- tryCatch({
       save(topGameData, file="topGameData.rda")
-      for (i in 0:pages) { # Get the top 4000 games. 
+      for (i in 0:pages) {
         page <- read_html(paste(url, "?page=", i, sep=''))
         gameElements <- html_nodes(page, ".clamp-summary-wrap")
         baseURL <- "https://www.metacritic.com"
         for (entry in gameElements) {
-          topGameData <- rbind(topGameData, parseGameEntry(baseURL, entry))
-          Sys.sleep(1.0) # Let's be polite
+          tryCatch({
+            topGameData <- rbind(topGameData, parseGameEntry(baseURL, entry))
+          },
+          error = function(e) {
+            print("Something went wrong fetching data for this game")
+          })
+          Sys.sleep(0.2) # Let's be polite
         }
         topGameData <- na.omit(topGameData)
         save(topGameData, file="topGameData.rda")
@@ -114,7 +119,7 @@ getTopGames <- function(url, pages) {
 # Un-comment to see the auto data fetcher in action
 if (!file.exists("topGameData.rda")) {
   url <- "https://www.metacritic.com/browse/games/score/metascore/all"
-  getTopGames(url, pages = 40) # Gets the top 40 pages of data (4000 games)
+  getTopGames(url, pages = 180) # Gets the top 40 pages of data (4000 games)
 }
 load("topGameData.rda")
 
