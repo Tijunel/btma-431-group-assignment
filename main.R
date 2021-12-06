@@ -208,15 +208,15 @@ getPublisherData <- function(topGames) {
 testPublisherRatings <- function(topGameData, pub1, pub2) {
   pubRatings1 <- subset(topGameData, publishers == pub1, select = c(userScore, metaScore))
   pubRatings2 <- subset(topGameData, publishers == pub2, select = c(userScore, metaScore))
-  print(t.test(pubRatings1$userScore, pubRatings2$userScore, mu=0.01, alternative="greater"))
-  print(t.test(pubRatings1$metaScore, pubRatings2$metaScore, mu=0.1, alternative="greater"))
+  print(t.test(pubRatings1$userScore, pubRatings2$userScore, mu=0.1, alternative="greater"))
+  print(t.test(pubRatings1$metaScore, pubRatings2$metaScore, mu=1, alternative="greater"))
 }
 
 publisherData <- getPublisherData(topGameData)
 testPublisherRatings(publisherData, "Rockstar Games", "Nintendo")
 
 ### Question 2 #################################################################
-#' Which genre receives the highest review scores?
+#' Is genre a statistically significant predictor of user scores?
 getGenreStats <- function(topGames, minGames) {
   topGamesIndexed <- topGames %>% separate_rows(genres, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating"))
@@ -245,6 +245,9 @@ print(plt)
 explodedGenre <- topGameData %>% rowwise() %>% mutate(genres = genres[[1]], publishers = publishers[[1]])
 explodedGenre <- within(explodedGenre, rm("rank", "name"))
 print(explodedGenre)
+genreOnly <- within(explodedGenre, rm("metaScore", "releaseDate", "reviewers", "rating", "publishers"))
+genreOnlyModel <- lm(userScore ~ ., data = genreOnly)
+print(summary(genreOnlyModel))
 fullModel <- lm(userScore ~ ., data = explodedGenre)
 topGamesWithoutGenre <- within(explodedGenre, rm("genres"))
 modelWithoutGenre <- lm(userScore ~ ., data=topGamesWithoutGenre)
