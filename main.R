@@ -128,40 +128,98 @@ if (!file.exists("topGameData.rda")) {
 }
 load("topGameData.rda")
 
-#### Q1 Data Fetching ##########################################################
+# Saving data for plot generation outside of R
+# Create rda file for publishers
+savePublisherData <- function(topGames) {
+  publisherData <- topGames %>% separate_rows(publishers, sep = "\n") %>% filter(n() > 5)
+  write.csv(publisherData, 'publisherData.csv')
+}
+# Create rda file for genres
+saveGenreData <- function() {
+  genreData <- topGames %>% separate_rows(genres, sep = "\n") %>% filter(n() > 3)
+  write.csv(genreData, 'genreData.csv')
+}
+
+# Make sure the meta score is the right scale
+topGameData$metaScore <- topGameData$metaScore / 10
+
+#### Q1 Data Fetching END ######################################################
 
 
 ### Question 1 #################################################################
 #' Which publisher has the highest rated games?
-#' Null Hypothesis: Publisher X and Publisher Y produce games with equal user and meta scores.
-getPublisherStats <- function(topGames) {
+getPublisherStats <- function(topGames, minGames) {
   topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "genres"))
-  stats <- topGamesIndexed %>% group_by(publishers) 
+  stats <- topGamesIndexed %>% group_by(publishers) %>% filter(n() > minGames) %>% mutate(
+      meanUserScore = mean(userScore),
+      count_games = n(),
+      meanMetaScore = mean(metaScore)
+    ) %>%
+    summarise_if(is.numeric, mean)
+  stats <- na.omit(stats)
+  return (stats)
 }
 
-# Perform a regression on the userScore dependent on publishers
-publisherStats <- getPublisherStats(topGameData)
-publisherUserScoreRegression <- lm(userScore ~ publishers, data = publisherStats)
-print(summary(publisherUserScoreRegression))
-# The publisher with the largest coefficient is Sony Interactive entertainment and VU Games (Each with a coefficient of 0.50)
-# The publisher with the lowest coefficient is SEGA (-1.53) Activision (-1.21).
-
-# Perform a regression on the metaScore dependent on publishers
-publisherMetaScoreRegression <- lm(metaScore ~ publishers, data = publisherStats)
-print(summary(publisherMetaScoreRegression))
-
-testPubRatings <- function(topGameData, pub1, pub2) {
-  pubRatings1 <- subset(q1Data, primaryPublisher == pub1, select = c(userScore, metaScore))
-  pubRatings2 <- subset(q1Data, primaryPublisher == pub2, select = c(userScore, metaScore))
-  print(t.test(pubRatings1$userScore, pubRatings2$userScore, mu=0.5, alternative="greater"))
-  print(t.test(pubRatings1$metaScore, pubRatings2$metaScore, mu=0.5, alternative="greater"))
+for(i in seq(0, 30, by=10)) {
+  publisherStats <- getPublisherStats(topGameData, i)
+  bestUserScore <- publisherStats[which.max(publisherStats$meanUserScore),]
+  bestMetaScore <- publisherStats[which.max(publisherStats$meanMetaScore),]
+  worstUserScore <- publisherStats[which.min(publisherStats$meanUserScore),]
+  worstMetaScore <- publisherStats[which.min(publisherStats$meanMetaScore),]
+  print(paste("The publisher with the highest user score with at least", i, "games is", bestUserScore$publishers, "with a mean user score of", bestUserScore$meanUserScore))
+  print(paste("The publisher with the highest Metascore with at least", i, "games is", bestMetaScore$publishers, "with a mean Metascore of", bestMetaScore$meanMetaScore))
+  print(paste("The publisher with the lowest user score with at least", i, "games is", worstUserScore$publishers, "with a mean user score of", worstUserScore$meanUserScore))
+  print(paste("The publisher with the lowest Metascore with at least", i, "games is", worstMetaScore$publishers, "with a mean Metascore of", worstMetaScore$meanMetaScore))
 }
 
-testPubRatings(topGameData, "Rockstar Games", "Nintendo")
-# Null Hypothesis -> Rockstar Games and Nintendo produce games with equal user and meta score
-# The null hypothesis is for user scores false. Nintendo outcompetes Rockstar. 
-# The null hypothesis for meta scores is false. Rockstar outcompetes Nintendo.
+publisherStats <- getPublisherStats(topGameData, 100)
+publisherStats <- within(publisherStats, rm("metaScore", "userScore", "reviewers", "count_games"))
+publisherStats <- publisherStats %>% rename("Mean Metascore" = meanMetaScore, "Mean User Score" = meanUserScore)
+plottingData <- gather(publisherStats, variable, value, -publishers)
+plt <- ggplot(plottingData, aes(x=publishers, y=value)) + 
+  geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) + 
+  ylim(0, 10) +
+  guides(fill=guide_legend(title="Score Type")) +
+  labs(x="Publisher", y="Mean User Score", title="Mean User Score for publishers with 100+ games") 
+print(plt)
+
+### Sub Question 1 #############################################################
+#' Null Hypothesis: Publisher X makes games with greater review scores than Publisher Y. 
+getPublisherData <- function(topGames) {
+  topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
+  return (topGamesIndexed)
+}
+
+testPublisherRatings <- function(topGameData, pub1, pub2) {
+  pubRatings1 <- subset(topGameData, publishers == pub1, select = c(userScore, metaScore))
+  pubRatings2 <- subset(topGameData, publishers == pub2, select = c(userScore, metaScore))
+  print(t.test(pubRatings1$userScore, pubRatings2$userScore, mu=0.01, alternative="greater"))
+  print(t.test(pubRatings1$metaScore, pubRatings2$metaScore, mu=0.1, alternative="greater"))}
+
+publisherData <- getPublisherData(topGameData)
+testPublisherRatings(publisherData, "Rockstar Games", "Nintendo")
+
+### Question 2 #################################################################
+#' Which genre receives the highest review scores?
+getExplodedData <- function(topGames) {
+  topGamesIndexed <- topGames %>% separate_rows(genres, sep = "\n")
+  topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating"))
+  topGamesIndexed <- topGamesIndexed %>% group_by(genres)
+  return (topGamesIndexed)
+}
+
+# Test the genre equivalence
+
+# The p-value is less than 0.05, so we can conclude there are significant differences between the genres.
+# Therefore, the alternative hypothesis is true.
+
+# Create a regression
+genreStats <- getGenreStats(topGameData)
+reg <- lm(userScore ~ genres, data = genreStats)
+print(summary(reg))
+
+################################################################################
 
 #' What is the greatest predictor of a high rating?
 #https://discuss.analyticsvidhya.com/t/how-to-add-a-column-to-a-data-frame-in-r/3278
@@ -204,41 +262,8 @@ testPubRatings(topGameData, "Rockstar Games", "Nintendo")
 # 
 # metaRegression(q1Data)
 
-### Question 1 - Sub Question ##################################################
-#' Null Hypothesis: Genres receive equal ratings, there is no difference in ratings between 
-getGenreStats <- function(topGames) {
-  topGamesIndexed <- topGames %>% separate_rows(genres, sep = "\n")
-  topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "publishers"))
-  stats <- topGamesIndexed %>%
-            group_by(genres) #%>%
-            # mutate(
-            #   mean_ratings = mean(userScore),
-            #   count_games = n(),
-            #   mean_meta = mean(metaScore),
-            # ) %>%
-            # summarise_if(is.numeric, mean)
-  return (stats)
-}
-
-# Test the genre equivalence
-groupedGenres <- getGenreStats(topGameData)
-testGenreEquivalence(groupedGenres)
-anovaTest <- aov(userScore ~ genres, data = groupedGenres)
-print(summary(anovaTest))
-# The p-value is less than 0.05, so we can conclude there are significant differences between the genres.
-# Therefore, the alternative hypothesis is true.
-
-# Create a regression
-reg <- lm(userScore ~ genres, data = groupedGenres)
-print(summary(reg))
-
-
-# TODO: Create a visualization of genre prevalence. 
-# TODO: Answer the question, perform a t-test, be sure to account for different sample size. 
-# TODO: Write a description describing the process and then results of the tests. 
-
-### Question 2 #################################################################
-#' Null Hypothesis: The top rated games from the top 100 list on meta critic were released in winter.
+### Question 3 #################################################################
+#' Null Hypothesis: Game review scores and their release seasons are independent.
 
 getSeasonScores <- function(topGames) {
   # TODO: Group the games by seasons (use a custom implementation to find the season based on the date)
@@ -362,9 +387,10 @@ regression = data.frame(Variable, Genre, Estimated_Coefficients, PValue)
 # Reference: "https://www.r-bloggers.com/2013/01/regression-on-categorical-variables/"
 
 # Graphs the NA Sales value for each Genre
-ggplot(vgsales, aes(x=Genre,y=NA_Sales, color=Genre)) + 
+plt <- ggplot(vgsales, aes(x=Genre,y=NA_Sales, color=Genre)) + 
   geom_line(lwd=2) + 
   labs(x="Genre", y="NA Sales", title="Genre vs NA Sales") 
+print(plt)
 
 # Part 3
 # Do data vis
