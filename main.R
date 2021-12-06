@@ -121,7 +121,7 @@ getTopGames <- function(url, pages) {
   )
 }
 
-# Un-comment to see the auto data fetcher in action
+# Invert to condition to see the file fetcher in action
 if (!file.exists("topGameData.rda")) {
   url <- "https://www.metacritic.com/browse/games/score/metascore/all"
   getTopGames(url, pages = 180) # Gets the top 40 pages of data (4000 games)
@@ -146,10 +146,10 @@ topGameData$metaScore <- topGameData$metaScore / 10
 dates <- as.POSIXct(topGameData$releaseDate, format = "%Y-%m-%d")
 topGameData$releaseDate <- as.numeric(dates)
 
-#### Q1 Data Fetching END ######################################################
-
-
-### Question 1 #################################################################
+#' #### Q1 Data Fetching END ######################################################
+#' 
+#' 
+#' ### Question 1 #################################################################
 #' Which publisher has the highest rated games?
 getPublisherStats <- function(topGames, minGames) {
   topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
@@ -157,7 +157,8 @@ getPublisherStats <- function(topGames, minGames) {
   stats <- topGamesIndexed %>% group_by(publishers) %>% filter(n() > minGames) %>% mutate(
       meanUserScore = mean(userScore),
       count_games = n(),
-      meanMetaScore = mean(metaScore)
+      meanMetaScore = mean(metaScore),
+      meanReviewers = mean(reviewers)
     ) %>%
     summarise_if(is.numeric, mean)
   stats <- na.omit(stats)
@@ -176,19 +177,29 @@ for(i in seq(0, 30, by=10)) {
   print(paste("The publisher with the lowest Metascore with at least", i, "games is", worstMetaScore$publishers, "with a mean Metascore of", worstMetaScore$meanMetaScore))
 }
 
+# Let's plot the meta and user score for the top publishers
 publisherStats <- getPublisherStats(topGameData, 200)
-publisherStats <- within(publisherStats, rm("metaScore", "userScore", "reviewers", "count_games", "releaseDate"))
-publisherStats <- publisherStats %>% rename("Mean Metascore" = meanMetaScore, "Mean User Score" = meanUserScore)
-plottingData <- gather(publisherStats, variable, value, -publishers)
-plt <- ggplot(plottingData, aes(x=publishers, y=value)) + 
-  geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) + 
+plottingData <- within(publisherStats, rm("metaScore", "userScore", "reviewers", "count_games", "releaseDate", "meanReviewers"))
+plottingData <- plottingData %>% rename("Mean Metascore" = meanMetaScore, "Mean User Score" = meanUserScore)
+plottingData <- gather(plottingData, variable, value, -publishers)
+plt <- ggplot(plottingData, aes(x=publishers, y=value)) +
+  geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) +
   ylim(0, 10) +
   guides(fill=guide_legend(title="Score Type")) +
-  labs(x="Publisher", y="Mean Score", title="Mean scores for publishers with 200+ games") 
+  labs(x="Publisher", y="Mean Score", title="Mean scores for publishers with 200+ games")
+print(plt)
+
+# Let's plot the mean number of reviewers for the top publishers
+plottingData <- within(publisherStats, rm("metaScore", "userScore", "reviewers", "count_games", "releaseDate", "meanMetaScore", "meanUserScore"))
+plottingData <- plottingData %>% rename("Mean Reviewer Count" = meanReviewers)
+plottingData <- gather(plottingData, variable, value, -publishers)
+plt <- ggplot(plottingData, aes(x=publishers, y=value)) +
+  geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) +
+  labs(x="Publisher", y="Mean Number of Reviewers Per Game", title="Mean number of reviewers for publishers with 200+ games")
 print(plt)
 
 ### Sub Question 1 #############################################################
-#' Null Hypothesis: Publisher X makes games with greater review scores than Publisher Y. 
+#' Null Hypothesis: Publisher X makes games with greater review scores than Publisher Y.
 getPublisherData <- function(topGames) {
   topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
   return (topGamesIndexed)
@@ -230,12 +241,11 @@ plt <- ggplot(plottingData, aes(x=genres, y=value)) +
   labs(x="Genre", y="Mean Score", title="Mean scores for genres with 800+ games")
 print(plt)
 
-# Test the significance of the genre categorical 
+# Test the significance of the genre categorical
 explodedGenre <- topGameData %>% rowwise() %>% mutate(genres = genres[[1]], publishers = publishers[[1]])
-explodedGenre <- within(explodedGenre, rm("rank", "name", "metaScore"))
+explodedGenre <- within(explodedGenre, rm("rank", "name"))
 print(explodedGenre)
 fullModel <- lm(userScore ~ ., data = explodedGenre)
-print(summary(fullModel))
 topGamesWithoutGenre <- within(explodedGenre, rm("genres"))
 modelWithoutGenre <- lm(userScore ~ ., data=topGamesWithoutGenre)
 print(anova(fullModel, modelWithoutGenre))
@@ -249,38 +259,38 @@ print(anova(fullModel, modelWithoutGenre))
 #   SE <- as.Date("2012-3-20",  format = "%Y-%m-%d") # Spring Equinox
 #   SS <- as.Date("2012-6-20",  format = "%Y-%m-%d") # Summer Solstice
 #   FE <- as.Date("2012-9-22",  format = "%Y-%m-%d") # Fall Equinox
-#   
+#
 #   # Convert dates from any year to 2012 dates
 #   d <- as.Date(strftime(dates, format="2012-%m-%d"))
-#   
+#
 #   ifelse (d >= WS | d < SE, "Winter",
 #           ifelse (d >= SE & d < SS, "Spring",
 #                   ifelse (d >= SS & d < FE, "Summer", "Fall")))
 # }
-# 
+#
 # q1Data <- mutate(topGameData, releaseSeason = getSeason(topGameData$releaseDate))
 # q1Data <- q1Data %>% rowwise() %>% mutate(primaryGenre = genres[[1]])
 # q1Data <- q1Data %>% rowwise() %>% mutate(primaryPublisher = publishers[[1]])
-# 
+#
 # # TODO: Create a regression and find the variable with the highest coefficient for predicting the user score.
 # metaRegression <- function(topGameData) {
 #   sData <- select(topGameData, userScore, releaseSeason)
 #   names(sData) <- c("Score", "Season")
 #   print(summary(lm(Score ~ ., data = sData)))
-#   
+#
 #   gData <- select(topGameData, userScore, primaryGenre)
 #   names(gData) <- c("Score", "Genre")
 #   print(summary(lm(Score ~ ., data = gData)))
-#   
+#
 #   pData <- select(topGameData, userScore, primaryPublisher)
 #   names(pData) <- c("Score", "Publisher")
 #   print(summary(lm(Score ~ ., data = pData)))
-#   
+#
 #   mData <- select(topGameData, userScore, metaScore)
 #   names(mData) <- c("Score", "Meta")
 #   print(summary(lm(Score ~ ., data = mData)))
 # }
-# 
+#
 # metaRegression(q1Data)
 
 ### Question 3 #################################################################
@@ -294,15 +304,7 @@ getSeasonScores <- function(topGames) {
 # TODO: Compare the seasons using a t-test (or maybe something better?)
 # TODO: Write description for process and the results we found
 
-### Question 3 #################################################################
-#' Null Hypothesis: North America sells the most video games.
-
-### Question 3 - Sub Question 1 ################################################
-#' Null Hypothesis: Xbox is the most popular platform in North America all-time.
-
-### Question 3 - Sub Question 2 ################################################
-#' Null Hypothesis: What is the greatest predictor of sales for a game. 
-
+### Question 4 #################################################################
 # Part 2
 # Do data analysis
 
@@ -311,17 +313,17 @@ getSeasonScores <- function(topGames) {
 #'
 #' Q2 - Also normalize
 #'
-#' Q3 - Normalize for year 
+#' Q3 - Normalize for year
 #' #Main Question: North America makes the most revenue from games
-#Subquestion 1: Xbox is the most used console in North America 
-#Subqeustion 2: Sports games are the most popular in north america 
+#Subquestion 1: Xbox is the most used console in North America
+#Subqeustion 2: Sports games are the most popular in north america
 
-# set the working directory to where you downloaded archive.zip 
-# unzip and load vgsales.csv into the environment. 
+# set the working directory to where you downloaded archive.zip
+# unzip and load vgsales.csv into the environment.
 vgsales <- read.csv(unz("archive.zip", "vgsales.csv"), stringsAsFactors = FALSE)
 
-# Subquestion 2: WiiU and PS has the same mean. 
-# create a new dataframe including both PS and WiiU 
+# Subquestion 2: WiiU and PS has the same mean.
+# create a new dataframe including both PS and WiiU
 target <- c("PS", "WiiU")
 vgsales.filtered <- filter(vgsales, Platform %in% target)
 
@@ -329,46 +331,46 @@ vgsales.filtered <- filter(vgsales, Platform %in% target)
 drops <- c("Rank","Year", "Genre", "Publisher", "NA_Sales", "EU_Sales", "JP_Sales", "Other_Sales")
 vgsales.filtered <- vgsales.filtered[ , !(names(vgsales.filtered) %in% drops)]
 
-# Rename Columns 
-vgsales.filtered <- vgsales.filtered %>% 
+# Rename Columns
+vgsales.filtered <- vgsales.filtered %>%
                       rename(
                         'Game Name' = Name,
                         'Global Sales' = Global_Sales
                       )
 
-# TWO SAMPLE T-TEST BETWEEN PS AND WIIU 
+# TWO SAMPLE T-TEST BETWEEN PS AND WIIU
 
-# Also known as the indepedent samples t-test 
+# Also known as the indepedent samples t-test
 # We chose the two-sample t-test to test whether the means of the two platforms (WiiU and PS) are equal or not.
-# Additionally, as shown below the variance of the two are almost identical making this test appropriate to use 
+# Additionally, as shown below the variance of the two are almost identical making this test appropriate to use
 
-# create a dataframe to filter for each platform 
+# create a dataframe to filter for each platform
 WiiU.df <- filter(vgsales, Platform == "WiiU")
 PS.df <- filter(vgsales, Platform == "PS")
-# show that the variance are the same to ensure we meet the assumptions of the t-test 
+# show that the variance are the same to ensure we meet the assumptions of the t-test
 var(PS.df$Global_Sales)
 var(WiiU.df$Global_Sales)
 
-# get number of samples 
+# get number of samples
 N <- nrow(vgsales.filtered)
 
 # do the hypothesis test comparing the mean global sales of PS and WiiU
 hypothesis_test <- t.test(vgsales.filtered$'Global Sales' ~ vgsales.filtered$Platform)
 
 # get and store the p-value of the test to use in our analysis
-ttest.pvalue <- round(hypothesis_test$p.value, digits = 4) 
+ttest.pvalue <- round(hypothesis_test$p.value, digits = 4)
 
-# find the critical value given a 95% confidence interval 
+# find the critical value given a 95% confidence interval
 tcrit=qt(0.025, df=(N-1))
 
 # create the range for the plot graph
 dum=seq(-3.5, 3.5, length=10^4)
 
-# Plot the critical values, t-test value, and the curve. 
+# Plot the critical values, t-test value, and the curve.
 plot(dum, dt(dum, df=(N-1)), type='l', main = 'Probability Distribution Curve', xlab='t', ylab='f(t)', cex.main = 0.9,   font.main= 4,)
-abline(v=hypothesis_test$statistic, lty=2) # t test value 
-abline(v=tcrit, col='red', lty=2) # critical value one 
-abline(v=-tcrit, col='red', lty=2) # critical value two 
+abline(v=hypothesis_test$statistic, lty=2) # t test value
+abline(v=tcrit, col='red', lty=2) # critical value one
+abline(v=-tcrit, col='red', lty=2) # critical value two
 
 # code retrieved from "https://stackoverflow.com/questions/36508020/can-r-visualize-the-t-test-or-other-hypothesis-test-results?rq=1"
 
@@ -379,27 +381,27 @@ abline(v=-tcrit, col='red', lty=2) # critical value two
 drops.3 <- c("Rank","Year", "Platform", "Publisher", "Global_Sales", "EU_Sales", "JP_Sales", "Other_Sales")
 vgsales.filtered.3 <- vgsales[ , !(names(vgsales) %in% drops.3)]
 
-# Rename Columns 
-vgsales.filtered.3 <- vgsales.filtered.3 %>% 
+# Rename Columns
+vgsales.filtered.3 <- vgsales.filtered.3 %>%
   rename(
     'Game Name' = Name,
   )
 
-# CATEGORICAL REGRESSION MODEL FOR GENRE AND NORTH AMERICA SALES 
+# CATEGORICAL REGRESSION MODEL FOR GENRE AND NORTH AMERICA SALES
 
-# fit the linear regression between different types of Genre and the vgsales dataframe we just filteres 
-# R has chosen the "Action" Genre to be the base. 
+# fit the linear regression between different types of Genre and the vgsales dataframe we just filteres
+# R has chosen the "Action" Genre to be the base.
 fit <- lm(NA_Sales ~ Genre, data = vgsales.filtered.3)
 
 summary(fit) # Gives regression summary output
 
-# scrap the Genre from the regression summary 
+# scrap the Genre from the regression summary
 Genre = c(as.character(unlist(fit$xlevels)))
-# scrap the variable from the regression summary 
+# scrap the variable from the regression summary
 Variable=names(coefficients(fit))
-# scrap the Estimated Coefficient from the regression summary 
+# scrap the Estimated Coefficient from the regression summary
 Estimated_Coefficients = as.numeric(coefficients(fit))
-# scrap the P-Value from the regression summary 
+# scrap the P-Value from the regression summary
 PValue = round(as.numeric(summary(fit)$coefficients[,  4]), digits = 5)
 
 # create a data frame to hold the important factors in the regression summary
@@ -408,19 +410,59 @@ regression = data.frame(Variable, Genre, Estimated_Coefficients, PValue)
 # Reference: "https://www.r-bloggers.com/2013/01/regression-on-categorical-variables/"
 
 # Graphs the NA Sales value for each Genre
-plt <- ggplot(vgsales, aes(x=Genre,y=NA_Sales, color=Genre)) + 
-  geom_line(lwd=2) + 
-  labs(x="Genre", y="NA Sales", title="Genre vs NA Sales") 
+plt <- ggplot(vgsales, aes(x=Genre,y=NA_Sales, color=Genre)) +
+  geom_line(lwd=2) +
+  labs(x="Genre", y="NA Sales", title="Genre vs NA Sales")
 print(plt)
 
-# Part 3
-# Do data vis
 
-#' Q1: Make bar chart comparing average score for each publisher
-#' Subquestion: Chart of average ratings for each of sony's game genres
-#' 
-#' Q2: Make a stacked vertical bar chart
-#' 
-#' Q3: Sales of games all-time per game - World interactive chart
-#' Subquestion 1 - Sales for each platform in north america
-#' Subquestion 2 - Sales for each genre on XBox
+### BONUS QUESTION #############################################################
+# What percentage of games have higher Metascores than user review scores?
+# Uncomment to run, as it takes forever
+
+minGames <- seq(3, 450)
+publisherData <- topGamesIndexed <- topGameData %>% separate_rows(publishers, sep = "\n")
+publishers <- unique(publisherData$publishers)
+acceptancePercentages <- c()
+for (i in minGames) {
+  greaterScores <- c()
+  for (publisher in publishers) {
+    games <- publisherData[publisherData$publishers == publisher,]
+    userScores <- games$userScore
+    metaScores <- games$metaScore
+    if (length(userScores) >= i && length(metaScores) >= i) {
+      p <- t.test(metaScores, userScores, alternative="greater", paired = FALSE)$p.value
+      greaterScores <- c(greaterScores, p < 0.05)
+    }
+  }
+  acceptancePercentages <- c(acceptancePercentages, mean(greaterScores))
+}
+acceptancePercentages <- acceptancePercentages * 100
+
+# TODO: Put this in the above loop
+rejectionPercentages <- c()
+for (i in minGames) {
+  greaterScores <- c()
+  for (publisher in publishers) {
+    games <- publisherData[publisherData$publishers == publisher,]
+    userScores <- games$userScore
+    metaScores <- games$metaScore
+    if (length(userScores) <= i && length(metaScores) <= i && length(userScores) > 2 && length(metaScores) > 2) {
+      p <- t.test(metaScores, userScores, alternative="greater", paired = FALSE)$p.value
+      greaterScores <- c(greaterScores, p < 0.05)
+    }
+  }
+  rejectionPercentages <- c(rejectionPercentages, mean(greaterScores))
+}
+rejectionPercentages <- rejectionPercentages * 100
+
+plotData <- data.frame(minGames = minGames, acceptancePercentages = acceptancePercentages, rejectionPercentages = rejectionPercentages, percentageOfGames = percentageOfGames)
+plt <- ggplot(plotData, aes(x=minGames)) +
+        geom_line(aes(y = acceptancePercentages, color='At least X games published'), size=2) +
+        geom_line(aes(y = rejectionPercentages, color='At most X games published'), size=2) +
+        ylim(0, 100) +
+        guides(fill=guide_legend(title="Legend")) +
+        labs(x="Minimum games published", y="Percent of publishers", title="Percentage of publishers with games that have dominating Metascores")
+print(plt)
+
+
