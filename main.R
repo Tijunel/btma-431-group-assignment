@@ -143,8 +143,8 @@ saveGenreData <- function() {
 # Make sure the meta score is the right scale
 topGameData$metaScore <- topGameData$metaScore / 10
 # Convert dates to posix time to analyze as a number
-dates <- as.POSIXct(topGameData$releaseDate, format = "%Y-%m-%d")
-topGameData$releaseDate <- as.numeric(dates)
+#dates <- as.POSIXct(topGameData$releaseDate, format = "%Y-%m-%d")
+#topGameData$releaseDate <- as.numeric(dates)
 
 #' #### Q1 Data Fetching END ######################################################
 #' 
@@ -299,13 +299,76 @@ print(anova(fullModel, modelWithoutGenre))
 ### Question 3 #################################################################
 #' Null Hypothesis: Game review scores and their release seasons are independent.
 
+# TODO: Compare the seasons using a t-test (or maybe something better?)
+# TODO: Write description for process and the results we found
+addSeason <- function(topGames) {
+  seasonDate <- as.Date(strftime(topGames$releaseDate, format = "2012-%m-%d"))
+  
+  winter <- as.Date("2012-12-21", format = "%Y-%m-%d") # Winter Solstice
+  spring <- as.Date("2012-03-21", format = "%Y-%m-%d") # Spring Solstice  
+  summer <- as.Date("2012-06-21", format = "%Y-%m-%d") # Summer Solstice
+  fall <- as.Date("2012-09-21", format = "%Y-%m-%d") # Summer Solstice
+  
+  season <- ifelse (seasonDate >= winter | seasonDate < spring, "Winter",
+                    ifelse (seasonDate >= spring & seasonDate < summer, "Spring",
+                            ifelse (seasonDate >= summer & seasonDate < fall, "Summer", "Fall")))
+  topGames$releaseSeason <- season
+  return(topGames)
+}
+
+topGameData <- addSeason(topGameData)
+
 getSeasonScores <- function(topGames) {
   # TODO: Group the games by seasons (use a custom implementation to find the season based on the date)
   # TODO: Get aggregate score statistics for each season (average meta score, average user score, number of releases in the season)
+
+  topGamesIndexed <- topGames %>% separate_rows(releaseSeason, sep = "\n")
+  topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "genres"))
+  stats <- topGamesIndexed %>% group_by(releaseSeason) %>% mutate(
+    meanUserScore = mean(userScore),
+    count_games = n(),
+    meanMetaScore = mean(metaScore)
+  ) %>%
+    summarise_if(is.numeric, mean)
+  stats <- na.omit(stats)
+  return (stats)
 }
 
-# TODO: Compare the seasons using a t-test (or maybe something better?)
-# TODO: Write description for process and the results we found
+#Plotting Stats Based on Season
+
+seasonStats <- getSeasonScores(topGameData)
+
+plt <- ggplot(seasonStats, aes(x=releaseSeason, y=count_games)) +
+  geom_bar(aes(fill = count_games), position = "dodge", stat="identity", width=0.5) +
+  ylim(0, 4000) +
+  labs(x="Release Season", y="Number of Games", title="Number of Games Released in each Season")
+print(plt)
+
+seasonStats <- within(seasonStats, rm("metaScore", "userScore", "reviewers", "count_games"))
+seasonStats <- seasonStats %>% rename("Mean Metascore" = meanMetaScore, "Mean User Score" = meanUserScore)
+seasonPlottingData <- gather(seasonStats, variable, value, -releaseSeason)
+plt <- ggplot(seasonPlottingData, aes(x=releaseSeason, y=value)) +
+  geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) +
+  ylim(0, 10) +
+  guides(fill=guide_legend(title="Score Type")) +
+  labs(x="Release Season", y="Mean Score", title="Mean scores for each Release Season")
+print(plt)
+
+plt <- ggplot(seasonPlottingData, aes(x=releaseSeason, y=value)) +
+  geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) +
+  ylim(0, 10) +
+  guides(fill=guide_legend(title="Score Type")) +
+  labs(x="Release Season", y="Mean Score", title="Mean scores for each Release Season")
+print(plt)
+
+#Testing Significance of Release Season as a predictor of score
+explodedSeason <- topGameData %>% rowwise() %>% mutate(genres = genres[[1]], publishers = publishers[[1]])
+explodedSeason <- within(explodedSeason, rm("rank", "name", 'releaseDate'))
+print(explodedSeason)
+fullModel <- lm(userScore ~ ., data = explodedSeason)
+topGamesWithoutSeason <- within(explodedSeason, rm("releaseSeason"))
+modelWithoutSeason <- lm(userScore ~ ., data=topGamesWithoutSeason)
+print(anova(fullModel, modelWithoutSeason))
 
 ### Question 4 #################################################################
 # Part 2
