@@ -1,5 +1,5 @@
 # Copyright Justin Tijunelis, Luke Fouad, Terrin Mathews, Jessica Huong, Faith Nayko
-# Completed December 5, 2021
+# Completed December 8, 2021
 
 # This file contains source code for all questions including data fetching and plots
 
@@ -18,6 +18,7 @@ library('ggplot2')
 
 #### Q1 Data Fetching ##########################################################
 
+# This parses the details page for a game, of note are genres and publishers. 
 parseGameDetails <- function(url) {
   # Get the details of the game
   gamePage <- read_html(url)
@@ -53,6 +54,10 @@ parseGameDetails <- function(url) {
   return (list(userScore, reviewers, genres, publishers, rating))
 }
 
+# Extracts the game entry from the high level paginated page. 
+# This is executed 100 times for every page of the all time list. 
+# This will then fetch the details page for each game and extract user score, review count, 
+# publishers, and other misc.
 parseGameEntry <- function(baseURL, entry) {
   # Get the rank
   rank <- html_text(html_node(entry, "span.numbered"))
@@ -104,7 +109,7 @@ getTopGames <- function(url, pages) {
             error = function(e) {
               print("Something went wrong fetching data for this game")
             })
-            #Sys.sleep(0.2) # Let's be polite
+            Sys.sleep(0.2) # Let's be polite
           }
         },
         error = function(e) {
@@ -159,8 +164,14 @@ topGameData$metaScore <- topGameData$metaScore / 10
 #' Alternative Hypothesis: Large publishers do have higher average user average ratings than larger publishers
 print("Question 1")
 getPublisherStats <- function(topGames, games, min = TRUE) {
+  # Explode the publishers (Make a new row for each publisher in list)
   topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
+  # Remove unnecessary items
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "genres"))
+  
+  # Depending on the min boolean, get the top or bottom publisher stats,
+  # Group the data by publisher with number of games, mean user and meta score, 
+  # and the mean number of reviewers
   stats <- c()
   if (min) {
     stats <- topGamesIndexed %>% group_by(publishers) %>% filter(n() >= games) %>% mutate(
@@ -181,8 +192,10 @@ getPublisherStats <- function(topGames, games, min = TRUE) {
   return (stats)
 }
 
+# Iterate through range of publishers sizes (at least i games) and print the 
+# best and worst for user and meta scores
 print("Top rated publishers for small, medium, and mid sized publishers")
-for(i in seq(0, 10, by=10)) {
+for(i in seq(0, 100, by=10)) {
   publisherStats <- getPublisherStats(topGameData, i, TRUE)
   bestUserScore <- publisherStats[which.max(publisherStats$meanUserScore),]
   bestMetaScore <- publisherStats[which.max(publisherStats$meanMetaScore),]
@@ -194,7 +207,7 @@ for(i in seq(0, 10, by=10)) {
   print(paste("The publisher with the lowest Metascore with at least", i, "games is", worstMetaScore$publishers, "with a mean Metascore of", worstMetaScore$meanMetaScore))
 }
 
-# Let's plot the meta and user score for the top publishers
+# Let's plot the meta and user score for the top publishers (extract all unneeded data to properly plot)
 publisherStats <- getPublisherStats(topGameData, 200, TRUE)
 plottingData <- within(publisherStats, rm("metaScore", "userScore", "reviewers", "count_games", "meanReviewers"))
 plottingData <- plottingData %>% rename("Mean Metascore" = meanMetaScore, "Mean User Score" = meanUserScore)
@@ -206,7 +219,7 @@ plt <- ggplot(plottingData, aes(x=publishers, y=value)) +
   labs(x="Publisher", y="Mean Score", title="Mean scores for publishers with 200+ games")
 print(plt)
 
-# Let's plot the mean number of reviewers for the top publishers
+# Let's plot the mean number of reviewers for the top publishers (extract all unneeded data to properly plot)
 plottingData <- within(publisherStats, rm("metaScore", "userScore", "reviewers", "count_games", "meanMetaScore", "meanUserScore"))
 plottingData <- plottingData %>% rename("Mean Reviewer Count" = meanReviewers)
 plottingData <- gather(plottingData, variable, value, -publishers)
@@ -254,21 +267,29 @@ testPublisherRatings(publisherData, "Rockstar Games", "Nintendo", 0.1)
 #' Alternative Hypothesis: Large publishers receive greater meta/user score ratios than smaller publishers.
 print("Question 1, Subquestion 2")
 testAllPublisherRatios <- function(topGames, N) {
+  # Explode the publishers from the list in the data frame
   topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
+  
+  # Remove unneeded data
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "genres"))
+  
+  # Get the publishers that have at least N games and summarize
   largePublishers <- topGamesIndexed %>% group_by(publishers) %>% filter(n() >= N) %>% mutate(
     count_games = n(),
     meanUserScore = mean(userScore),
     meanMetaScore = mean(metaScore),
     meanReviewers = mean(reviewers)
   ) %>% summarise_if(is.numeric, mean)
+  
+  # Get the publishers that have at most N - 1 games
   smallPublishers <- topGamesIndexed %>% group_by(publishers) %>% filter(n() < N) %>% mutate(
     count_games = n(),
     meanUserScore = mean(userScore),
     meanMetaScore = mean(metaScore),
     meanReviewers = mean(reviewers)
   ) %>% summarise_if(is.numeric, mean)
-  print(largePublishers)
+  
+  # Perform the test
   largePublisherRatios <- largePublishers$meanMetaScore / largePublishers$meanUserScore
   smallPublisherRatios <- smallPublishers$meanMetaScore / smallPublishers$meanUserScore
   print(t.test(largePublisherRatios, smallPublisherRatios, alternative="greater"))
@@ -277,20 +298,29 @@ testAllPublisherRatios(topGameData, 100) # With 100, we fail to reject the null 
 testAllPublisherRatios(topGameData, 400) # With 100, we fail to reject the null hypothesis
 
 testGroupPublisherRatios <- function(topGames, N1, N2) {
+  # Explode the publishers from the list in the data frame
   topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
+  
+  # Remove unneeded data
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "genres"))
+  
+  # Get the publishers that have at least N2 games and summarize
   largePublishers <- topGamesIndexed %>% group_by(publishers) %>% filter(n() >= N2) %>% mutate(
     count_games = n(),
     meanUserScore = mean(userScore),
     meanMetaScore = mean(metaScore),
     meanReviewers = mean(reviewers)
   ) %>% summarise_if(is.numeric, mean)
-  smallPublishers <- topGamesIndexed %>% group_by(publishers) %>% filter(n() < N1) %>% mutate(
+  
+  # Get the publishers that have at most N1 games
+  smallPublishers <- topGamesIndexed %>% group_by(publishers) %>% filter(n() <= N1) %>% mutate(
     count_games = n(),
     meanUserScore = mean(userScore),
     meanMetaScore = mean(metaScore),
     meanReviewers = mean(reviewers)
   ) %>% summarise_if(is.numeric, mean)
+  
+  # Perform the test
   largePublisherGroupRatios <- largePublishers$meanMetaScore / largePublishers$meanUserScore
   smallPublisherGroupRatios <- smallPublishers$meanMetaScore / smallPublishers$meanUserScore
   print(t.test(largePublisherGroupRatios, smallPublisherGroupRatios, alternative="greater"))
@@ -299,57 +329,12 @@ testGroupPublisherRatios <- function(topGames, N1, N2) {
 # Here, we test publishers with 10 or less games and publishers with 300 or more games.
 testGroupPublisherRatios(topGameData, 10, 300) # Still no! We cannot reject the null hypothesis.
 
-# This plots a graph of the percentage of publishers that have higher user than meta scores
-# based on publisher size measured by number of games released.
-#' minGames <- seq(3, 450)
-#' publisherData <- topGamesIndexed <- topGameData %>% separate_rows(publishers, sep = "\n")
-#' publishers <- unique(publisherData$publishers)
-#' acceptancePercentages <- c()
-#' for (i in minGames) {
-#'   greaterScores <- c()
-#'   for (publisher in publishers) {
-#'     games <- publisherData[publisherData$publishers == publisher,]
-#'     userScores <- games$userScore
-#'     metaScores <- games$metaScore
-#'     if (length(userScores) >= i && length(metaScores) >= i) {
-#'       p <- t.test(metaScores, userScores, alternative="greater", paired = FALSE)$p.value
-#'       greaterScores <- c(greaterScores, p < 0.05)
-#'     }
-#'   }
-#'   acceptancePercentages <- c(acceptancePercentages, mean(greaterScores))
-#' }
-#' acceptancePercentages <- acceptancePercentages * 100
-#'
-#' rejectionPercentages <- c()
-#' for (i in minGames) {
-#'   greaterScores <- c()
-#'   for (publisher in publishers) {
-#'     games <- publisherData[publisherData$publishers == publisher,]
-#'     userScores <- games$userScore
-#'     metaScores <- games$metaScore
-#'     if (length(userScores) <= i && length(metaScores) <= i && length(userScores) > 2 && length(metaScores) > 2) {
-#'       p <- t.test(metaScores, userScores, alternative="greater", paired = FALSE)$p.value
-#'       greaterScores <- c(greaterScores, p < 0.05)
-#'     }
-#'   }
-#'   rejectionPercentages <- c(rejectionPercentages, mean(greaterScores))
-#' }
-#' rejectionPercentages <- rejectionPercentages * 100
-#'
-#' plotData <- data.frame(minGames = minGames, acceptancePercentages = acceptancePercentages, rejectionPercentages = rejectionPercentages, percentageOfGames = percentageOfGames)
-#' plt <- ggplot(plotData, aes(x=minGames)) +
-#'         geom_line(aes(y = acceptancePercentages, color='At least X games published'), size=2) +
-#'         geom_line(aes(y = rejectionPercentages, color='At most X games published'), size=2) +
-#'         ylim(0, 100) +
-#'         guides(fill=guide_legend(title="Legend")) +
-#'         labs(x="Minimum games published", y="Percent of publishers", title="Percentage of publishers with games that have dominating Metascores")
-#' print(plt)
-
 ### Question 2 #################################################################
 #' Is genre a statistically significant predictor of user scores?
 #' Null Hypothesis: Genre is an independent variable to user and meta score.
-#' Alternative Hypothesis: Genre is not an independant variable to user and meta score.
+#' Alternative Hypothesis: Genre is not an independent variable to user and meta score.
 print("Question 2")
+# Extract and summarize data with grouping
 getGenreStats <- function(topGames, minGames) {
   topGamesIndexed <- topGames %>% separate_rows(genres, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating"))
@@ -402,6 +387,7 @@ addSeason <- function(topGames) {
   return(topGames)
 }
 
+# Extracts the season data and provides aggregates for each season
 getSeasonScores <- function(topGames) {
   topGamesIndexed <- topGames %>% rowwise() %>% mutate(genres = genres[[1]], publishers = publishers[[1]])
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "releaseDate"))
@@ -441,6 +427,7 @@ plt <- ggplot(seasonPlottingData, aes(x=releaseSeason, y=value)) +
 print(plt)
 
 #Testing Significance of Release Season as a predictor of score
+# We get the full regression model, then one without release season, then perform anove
 seasonData <- topGameData
 seasonData <- addSeason(seasonData)
 explodedSeason <- seasonData %>% rowwise() %>% mutate(genres = genres[[1]], publishers = publishers[[1]])
@@ -448,7 +435,6 @@ explodedSeason <- within(explodedSeason, rm("rank", "name", 'releaseDate', 'meta
 fullModel <- lm(userScore ~ ., data = explodedSeason)
 explodedSeason <- within(explodedSeason, rm("releaseSeason"))
 modelWithoutSeason <- lm(userScore ~ ., data=explodedSeason)
-print(summary(fullModel))
 print(anova(fullModel, modelWithoutSeason))
 # The p-value is greater than 0.05, so we cannot reject the null hypothesis.
 # Thus, release season is independent of user score.
@@ -627,4 +613,52 @@ plt <- ggplot(vgsales, aes(x=Genre,y=NA_Sales, color=Genre)) +
   geom_line(lwd=2) +
   labs(x="Genre", y="North American Sales (Billion $USD)", title="Genre vs North American Sales")
 print(plt)
+
+
+# BONUS!
+# This plots a graph of the percentage of publishers that have higher user than meta scores
+# based on publisher size measured by number of games released. Note that this may take a while. 
+#' minGames <- seq(3, 450)
+#' publisherData <- topGamesIndexed <- topGameData %>% separate_rows(publishers, sep = "\n")
+#' publishers <- unique(publisherData$publishers)
+#' acceptancePercentages <- c()
+#' for (i in minGames) {
+#'   greaterScores <- c()
+#'   for (publisher in publishers) {
+#'     games <- publisherData[publisherData$publishers == publisher,]
+#'     userScores <- games$userScore
+#'     metaScores <- games$metaScore
+#'     if (length(userScores) >= i && length(metaScores) >= i) {
+#'       p <- t.test(metaScores, userScores, alternative="greater", paired = FALSE)$p.value
+#'       greaterScores <- c(greaterScores, p < 0.05)
+#'     }
+#'   }
+#'   acceptancePercentages <- c(acceptancePercentages, mean(greaterScores))
+#' }
+#' acceptancePercentages <- acceptancePercentages * 100
+#'
+#' rejectionPercentages <- c()
+#' for (i in minGames) {
+#'   greaterScores <- c()
+#'   for (publisher in publishers) {
+#'     games <- publisherData[publisherData$publishers == publisher,]
+#'     userScores <- games$userScore
+#'     metaScores <- games$metaScore
+#'     if (length(userScores) <= i && length(metaScores) <= i && length(userScores) > 2 && length(metaScores) > 2) {
+#'       p <- t.test(metaScores, userScores, alternative="greater", paired = FALSE)$p.value
+#'       greaterScores <- c(greaterScores, p < 0.05)
+#'     }
+#'   }
+#'   rejectionPercentages <- c(rejectionPercentages, mean(greaterScores))
+#' }
+#' rejectionPercentages <- rejectionPercentages * 100
+#'
+#' plotData <- data.frame(minGames = minGames, acceptancePercentages = acceptancePercentages, rejectionPercentages = rejectionPercentages, percentageOfGames = percentageOfGames)
+#' plt <- ggplot(plotData, aes(x=minGames)) +
+#'         geom_line(aes(y = acceptancePercentages, color='At least X games published'), size=2) +
+#'         geom_line(aes(y = rejectionPercentages, color='At most X games published'), size=2) +
+#'         ylim(0, 100) +
+#'         guides(fill=guide_legend(title="Legend")) +
+#'         labs(x="Minimum games published", y="Percent of publishers", title="Percentage of publishers with games that have dominating Metascores")
+#' print(plt)
 
