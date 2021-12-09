@@ -10,6 +10,7 @@ library('tidyr')
 library('purrr')
 library('tidyverse')
 library('XML')
+library('ggplot2')
 
 # Configuration
 # setwd("/Users/Justin/Documents/GitHub/btma-431-group-assignment")
@@ -620,6 +621,6 @@ print(regression)
 # Graphs the NA Sales value for each Genre
 plt <- ggplot(vgsales, aes(x=Genre,y=NA_Sales, color=Genre)) +
   geom_line(lwd=2) +
-  labs(x="Genre", y="North American Sales", title="Genre vs North American Sales")
+  labs(x="Genre", y="North American Sales (Billion $USD)", title="Genre vs North American Sales")
 print(plt)
 
