@@ -1,6 +1,8 @@
 # Copyright Justin Tijunelis, Luke Fouad, Terrin Mathews, Jessica Huong, Faith Nayko
 # Completed December 5, 2021
 
+# This file contains source code for all questions including data fetching and plots
+
 # Library Imports
 library('rvest')
 library('dplyr')
@@ -442,3 +444,48 @@ print(summary(fullModel))
 print(anova(fullModel, modelWithoutSeason))
 # The p-value is greater than 0.05, so we cannot reject the null hypothesis. 
 # Thus, release season is independent of user score. 
+
+### Question 3 Data Fetching ###################################################
+
+### Data Fetching
+
+#Scrape data from website using rvest package
+gaming.data <- read_html("https://vgsales.fandom.com/wiki/Video_game_industry")
+tables <- gaming.data %>% html_table(fill = TRUE)
+#Create dataframe from scraped data
+data <- tables[[1]]
+world.revenue <- tables[[2]]
+
+### Data Cleanup
+
+#Remove "Notes" column as it provides no data
+data <- select(data, -c("Note(s)"))
+#Rename first column for ease of use, verify data is dataframe
+colnames(data)[1] <- "country"
+
+#Filter for continents only 
+#There is no Africa or antartica, and north america is split into north and latin 
+continents <- c("Asia-Pacific", "Europe", "Australia", "North America", "Latin America", "Middle East")
+revenue.data <- filter(data, country %in% continents) 
+
+#Fix variables within dataframe which contain imperfections
+#Renamed continents, removed "billions", removed "brackets
+revenue.data$country <- c("Asia", "Australia", "Europe", "North America", "Latin America", "Middle East")
+revenue.data$`2013` <- c("49.623", "2", "20", "22.8", "3.9", "2.6")
+revenue.data$`2012` <- c("44.063", "1.16", "21.3", "20.7", "5.4", "2.6")
+revenue.data$`2011` <- c("42.358", "1.5", "21.3", "20.7", "5.4", "1.983")
+revenue.data$`2010` <- c("38.77", "1.67", "20.66", "20.49", "4.74", "1.2")
+
+#Column "country" into rownames for dataframe
+#Removed country column entirely
+revenue.data<- select(revenue.data, -c("country"))
+#Renamed rownames for continents
+rownames <- rownames(revenue.data)
+rownames(revenue.data) <- c("Asia", "Australia", "Europe", "North America", "Latin America", "Middle East")
+hypothesis.data <- revenue.data
+#Data is cleaned and ready to use
+
+### Question 3 #################################################################
+
+
+###

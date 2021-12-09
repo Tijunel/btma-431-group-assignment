@@ -1,6 +1,11 @@
 # Copyright Justin Tijunelis, Luke Fouad, Terrin Mathews, Jessica Huong, Faith Nayko
 # Completed December 5, 2021
 
+# This file contains the source code for:
+# 1. Scraping data from metacritic
+# 2. Data analysis for questions 1 and 2
+# 3. Plots for data analysis of questions 1 and 2
+
 # Library Imports
 library('rvest')
 library('dplyr')
