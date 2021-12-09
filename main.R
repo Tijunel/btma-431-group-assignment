@@ -13,7 +13,8 @@ library('XML')
 library('ggplot2')
 
 # Configuration
-# setwd("/Users/Justin/Documents/GitHub/btma-431-group-assignment")
+# MAKE SURE YOU SET THIS! Otherwise the top game data file will be corrupted.
+# setwd("~/Documents/GitHub.nosync/btma-431-group-assignment")
 
 #### Q1 Data Fetching ##########################################################
 
@@ -130,6 +131,7 @@ if (!file.exists("topGameData.rda")) {
   getTopGames(url, pages = 180) # Gets the top 40 pages of data (4000 games)
 }
 load("topGameData.rda")
+
 
 # Saving data for plot generation outside of R
 # Create rda file for publishers
