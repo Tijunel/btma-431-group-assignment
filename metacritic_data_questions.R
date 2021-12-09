@@ -21,7 +21,7 @@ parseGameDetails <- function(url) {
   gamePage <- read_html(url)
   # Get the user score
   userScore <- html_text(html_node(gamePage, "div.userscore_wrap > div.metascore_w.user"))
-  userScore <- as.numeric(userScore)  
+  userScore <- as.numeric(userScore)
   # Get the number of reviewers
   reviewers <- html_text(html_node(gamePage, "div.userscore_wrap > div.summary > p > span.count > a"))
   reviewers <- gsub(" Ratings", "", reviewers)
@@ -67,14 +67,14 @@ parseGameEntry <- function(baseURL, entry) {
   releaseDate <- as.Date(releaseDate, format="%B %d, %Y")
   # Details URL
   detailsURL <- paste(baseURL, html_attr(html_node(entry, "a.title"), "href"), sep="")
-  
+
   # Get the game details
   details <- parseGameDetails(detailsURL)
   df <- data.frame(
-    rank = rank, 
+    rank = rank,
     name = name,
     metaScore = metaScore,
-    releaseDate = releaseDate, 
+    releaseDate = releaseDate,
     userScore = details[[1]],
     reviewers = details[[2]],
     rating = details[[5]],
@@ -82,7 +82,7 @@ parseGameEntry <- function(baseURL, entry) {
   )
   df$genres <- list(details[[3]])
   df$publishers <- list(details[[4]])
-  
+
   return (df)
 }
 
@@ -214,7 +214,7 @@ print(plt)
 
 #' Let's check our hypothesis
 #' This function allows a user to define what a "large" publisher is by passing
-#' N, which will be used to parse the game data into publishers that have >= N games, 
+#' N, which will be used to parse the game data into publishers that have >= N games,
 #' and < N. The user can also pass a mu value to check if the large publishers get
 #' higher ratings by some constant amount (e.g. do publishers get greater average scores by 0.5%?)
 print("Let's perform a t-test")
@@ -230,6 +230,7 @@ publishersSizeTTest(topGameData, 100)
 ### Sub Question 1-1 ###########################################################
 #' Null Hypothesis: Publisher X does not make games with greater review scores than Publisher Y.
 #' Alternative Hypothesis: Publisher X does make games with a greater review scores than Publisher Y.
+print("Question 1, Subquestion 1")
 
 #' This function allows a user to compare pub 1, and pub 2. It tests whether the
 #' average user and meta scores of pub1 are greater than those of pub1. It also
@@ -246,8 +247,9 @@ testPublisherRatings(publisherData, "Rockstar Games", "Nintendo", 0.1)
 #' For meta scores, Rockstar indeed outperforms Nintendo. (Reject null hypothesis, accept alternative)
 
 ### Sub Question 1-2 ###########################################################
-#' Null Hypothesis: Larger publishers do not receive greater meta/user score ratios than smaller publishers. 
+#' Null Hypothesis: Larger publishers do not receive greater meta/user score ratios than smaller publishers.
 #' Alternative Hypothesis: Large publishers receive greater meta/user score ratios than smaller publishers.
+print("Question 1, Subquestion 2")
 testAllPublisherRatios <- function(topGames, N) {
   topGamesIndexed <- topGames %>% separate_rows(publishers, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating", "genres"))
@@ -263,6 +265,7 @@ testAllPublisherRatios <- function(topGames, N) {
     meanMetaScore = mean(metaScore),
     meanReviewers = mean(reviewers)
   ) %>% summarise_if(is.numeric, mean)
+  print(largePublishers)
   largePublisherRatios <- largePublishers$meanMetaScore / largePublishers$meanUserScore
   smallPublisherRatios <- smallPublishers$meanMetaScore / smallPublishers$meanUserScore
   print(t.test(largePublisherRatios, smallPublisherRatios, alternative="greater"))
@@ -290,11 +293,11 @@ testGroupPublisherRatios <- function(topGames, N1, N2) {
   print(t.test(largePublisherGroupRatios, smallPublisherGroupRatios, alternative="greater"))
 }
 # Let's compare two publisher at the tail bounds rather than cutting the publishers into two sections
-# Here, we test publishers with 10 or less games and publishers with 300 or more games. 
+# Here, we test publishers with 10 or less games and publishers with 300 or more games.
 testGroupPublisherRatios(topGameData, 10, 300) # Still no! We cannot reject the null hypothesis.
 
 # This plots a graph of the percentage of publishers that have higher user than meta scores
-# based on publisher size measured by number of games released. 
+# based on publisher size measured by number of games released.
 #' minGames <- seq(3, 450)
 #' publisherData <- topGamesIndexed <- topGameData %>% separate_rows(publishers, sep = "\n")
 #' publishers <- unique(publisherData$publishers)
@@ -313,7 +316,7 @@ testGroupPublisherRatios(topGameData, 10, 300) # Still no! We cannot reject the 
 #'   acceptancePercentages <- c(acceptancePercentages, mean(greaterScores))
 #' }
 #' acceptancePercentages <- acceptancePercentages * 100
-#' 
+#'
 #' rejectionPercentages <- c()
 #' for (i in minGames) {
 #'   greaterScores <- c()
@@ -329,7 +332,7 @@ testGroupPublisherRatios(topGameData, 10, 300) # Still no! We cannot reject the 
 #'   rejectionPercentages <- c(rejectionPercentages, mean(greaterScores))
 #' }
 #' rejectionPercentages <- rejectionPercentages * 100
-#' 
+#'
 #' plotData <- data.frame(minGames = minGames, acceptancePercentages = acceptancePercentages, rejectionPercentages = rejectionPercentages, percentageOfGames = percentageOfGames)
 #' plt <- ggplot(plotData, aes(x=minGames)) +
 #'         geom_line(aes(y = acceptancePercentages, color='At least X games published'), size=2) +
@@ -341,8 +344,9 @@ testGroupPublisherRatios(topGameData, 10, 300) # Still no! We cannot reject the 
 
 ### Question 2 #################################################################
 #' Is genre a statistically significant predictor of user scores?
-#' Null Hypothesis: Genre is an independent variable to user and meta score. 
-#' Alternative Hypothesis: Genre is not an independant variable to user and meta score. 
+#' Null Hypothesis: Genre is an independent variable to user and meta score.
+#' Alternative Hypothesis: Genre is not an independant variable to user and meta score.
+print("Question 2")
 getGenreStats <- function(topGames, minGames) {
   topGamesIndexed <- topGames %>% separate_rows(genres, sep = "\n")
   topGamesIndexed <- within(topGamesIndexed, rm("rank", "rating"))
@@ -370,13 +374,12 @@ print(plt)
 # Test the significance of the genre categorical
 explodedGenre <- topGameData %>% rowwise() %>% mutate(genres = genres[[1]], publishers = publishers[[1]])
 explodedGenre <- within(explodedGenre, rm("rank", "name", "metaScore"))
-genreOnlyModel <- lm(userScore ~ genres, data = genreOnly)
 fullModel <- lm(userScore ~ ., data = explodedGenre)
 topGamesWithoutGenre <- within(explodedGenre, rm("genres"))
 modelWithoutGenre <- lm(userScore ~ ., data=topGamesWithoutGenre)
 print(anova(fullModel, modelWithoutGenre))
-# The p-value is greater than 0.05, so we reject the null hypothesis. 
-# Genre is not an independent variable. 
+# The p-value is greater than 0.05, so we reject the null hypothesis.
+# Genre is not an independent variable.
 
 ### Sub Question 2-1 ########################################################
 #' Null Hypothesis: Game review scores and their release seasons are independent.
@@ -442,49 +445,178 @@ explodedSeason <- within(explodedSeason, rm("releaseSeason"))
 modelWithoutSeason <- lm(userScore ~ ., data=explodedSeason)
 print(summary(fullModel))
 print(anova(fullModel, modelWithoutSeason))
-# The p-value is greater than 0.05, so we cannot reject the null hypothesis. 
-# Thus, release season is independent of user score. 
+# The p-value is greater than 0.05, so we cannot reject the null hypothesis.
+# Thus, release season is independent of user score.
 
 ### Question 3 Data Fetching ###################################################
+fetchVGSalesData <- function() {
+  #Scrape data from website using rvest package
+  gaming.data <- read_html("https://vgsales.fandom.com/wiki/Video_game_industry")
+  tables <- gaming.data %>% html_table(fill = TRUE)
+  
+  #Create dataframe from scraped data
+  data <- tables[[1]]
+  world.revenue <- tables[[2]]
+  
+  ### Data Cleanup
+  # Remove "Notes" column as it provides no data
+  data <- select(data, -c("Note(s)"))
+  # Rename first column for ease of use, verify data is a data frame
+  colnames(data)[1] <- "country"
+  
+  # Filter for continents only 
+  # There is no Africa or antartica, and north america is split into north and latin 
+  continents <- c("Asia-Pacific", "Europe", "Australia", "North America", "Latin America", "Middle East")
+  revenue.data <- filter(data, country %in% continents) 
+  
+  # Fix variables within data frame which contain imperfections
+  # Renamed continents, removed "billions", removed "brackets
+  revenue.data$country <- c("Asia", "Australia", "Europe", "North America", "Latin America", "Middle East")
+  revenue.data$`2013` <- c("49.623", "2", "20", "22.8", "3.9", "2.6")
+  revenue.data$`2012` <- c("44.063", "1.16", "21.3", "20.7", "5.4", "2.6")
+  revenue.data$`2011` <- c("42.358", "1.5", "21.3", "20.7", "5.4", "1.983")
+  revenue.data$`2010` <- c("38.77", "1.67", "20.66", "20.49", "4.74", "1.2")
+  
+  # Column "country" into row names for data frame
+  # Removed country column entirely
+  revenue.data <- select(revenue.data, -c("country"))
+  # Renamed row names for continents
+  rownames <- rownames(revenue.data)
+  rownames(revenue.data) <- c("Asia", "Australia", "Europe", "North America", "Latin America", "Middle East") 
+  
+  return (revenue.data)
+}
 
-### Data Fetching
-
-#Scrape data from website using rvest package
-gaming.data <- read_html("https://vgsales.fandom.com/wiki/Video_game_industry")
-tables <- gaming.data %>% html_table(fill = TRUE)
-#Create dataframe from scraped data
-data <- tables[[1]]
-world.revenue <- tables[[2]]
-
-### Data Cleanup
-
-# Remove "Notes" column as it provides no data
-data <- select(data, -c("Note(s)"))
-# Rename first column for ease of use, verify data is dataframe
-colnames(data)[1] <- "country"
-
-# Filter for continents only 
-# There is no Africa or antartica, and north america is split into north and latin 
-continents <- c("Asia-Pacific", "Europe", "Australia", "North America", "Latin America", "Middle East")
-revenue.data <- filter(data, country %in% continents) 
-
-# Fix variables within data frame which contain imperfections
-# Renamed continents, removed "billions", removed "brackets
-revenue.data$country <- c("Asia", "Australia", "Europe", "North America", "Latin America", "Middle East")
-revenue.data$`2013` <- c("49.623", "2", "20", "22.8", "3.9", "2.6")
-revenue.data$`2012` <- c("44.063", "1.16", "21.3", "20.7", "5.4", "2.6")
-revenue.data$`2011` <- c("42.358", "1.5", "21.3", "20.7", "5.4", "1.983")
-revenue.data$`2010` <- c("38.77", "1.67", "20.66", "20.49", "4.74", "1.2")
-
-# Column "country" into row names for data frame
-# Removed country column entirely
-revenue.data<- select(revenue.data, -c("country"))
-# Renamed row names for continents
-rownames <- rownames(revenue.data)
-rownames(revenue.data) <- c("Asia", "Australia", "Europe", "North America", "Latin America", "Middle East")
-hypothesis.data <- revenue.data
+revenue.data <- fetchVGSalesData()
 
 ### Question 3 #################################################################
+# Null Hypothesis: The difference in revenue generated between continents is zero.
+# Alternative Hypothesis: The difference in revenue generated between continents is not zero.
+#Data is in character format, need to convert to numeric
+revenue.data[] <- lapply(revenue.data, as.numeric)
+str(revenue.data)
 
+#Calculating Mean value to Answer Main Question 1, adding mean column to data
+revenue.data$Mean <- rowMeans(revenue.data)
+rownames <- rownames(revenue.data)
+rownames(revenue.data) <- c("Asia", "Australia", "Europe", "North America", "Latin America", "Middle East")
+summary(revenue.data)
 
-###
+#Creating plot to look at mean distribution 
+qplot(x = rownames, y = revenue.data$Mean)
+
+#Creating proper conditions to run ANOVA testing
+#Change format of dataset, transpose column to row so we test for continents not year
+#stack data to be able to run ANOVA test
+df_transpose = t(revenue.data)
+transpose <- data.frame(df_transpose)
+stacked.data <- stack(transpose)
+Anova.results <- aov(values ~ ind, data = stacked.data)
+
+#ANOVA Test Results:
+print(summary(Anova.results))
+
+### Sub Question 3 - 1 #########################################################
+# Null Hypothesis: Between Platforms X and Y, the difference in their global sales is zero.
+# Alternative Hypothesis: Between Platforms X and Y, the difference in their global sales is NOT zero.
+print("Question 3, Subquestion 1")
+vgsales <- read.csv(unz("archive.zip", "vgsales.csv"), stringsAsFactors = FALSE)
+
+testPlatformSales <- function(data, X, Y) {
+  target <- c(X, Y)
+  data.filtered <- filter(data, Platform %in% target)
+  
+  # filter the data to only show the necessary fields - Name, Platform, Global Sales
+  drops <- c("Rank", "Year", "Genre", "Publisher", "NA_Sales", "EU_Sales", "JP_Sales", "Other_Sales")
+  data.filtered <- data.filtered[ , !(names(data.filtered) %in% drops)]
+  
+  # Rename Columns
+  data.filtered <- data.filtered %>%
+    rename(
+      'Game Name' = Name,
+      'Global Sales' = Global_Sales
+    )
+  
+  # TWO SAMPLE T-TEST BETWEEN PS AND WIIU
+  
+  # Also known as the independent samples t-test
+  # We chose the two-sample t-test to test whether the means of the two platforms (WiiU and PS) are equal or not.
+  # Additionally, as shown below the variance of the two are almost identical making this test appropriate to use
+  
+  # create a dataframe to filter for each platform
+  x.df <- filter(data, Platform == X)
+  y.df <- filter(data, Platform == Y)
+  # show that the variance are the same to ensure we meet the assumptions of the t-test
+  var(x.df$Global_Sales)
+  var(y.df$Global_Sales)
+  
+  # get number of samples
+  N <- nrow(data.filtered)
+  
+  # do the hypothesis test comparing the mean global sales of PS and WiiU
+  hypothesis_test <- t.test(data.filtered$'Global Sales' ~ data.filtered$Platform)
+  print(hypothesis_test)
+  
+  # get and store the p-value of the test to use in our analysis
+  ttest.pvalue <- round(hypothesis_test$p.value, digits = 4)
+  
+  # find the critical value given a 95% confidence interval
+  tcrit=qt(0.025, df=(N-1))
+  
+  # create the range for the plot graph
+  dum=seq(-3.5, 3.5, length=10^4)
+  
+  # Plot the critical values, t-test value, and the curve.
+  # code retrieved from "https://stackoverflow.com/questions/36508020/can-r-visualize-the-t-test-or-other-hypothesis-test-results?rq=1"
+  plot(dum, dt(dum, df=(N-1)), type='l', main = 'Probability Distribution Curve', xlab='t', ylab='f(t)', cex.main = 0.9, font.main= 4)
+  abline(v=hypothesis_test$statistic, lty=2) # t test value
+  abline(v=tcrit, col='red', lty=2) # critical value one
+  abline(v=-tcrit, col='red', lty=2) # critical value two
+}
+
+testPlatformSales(vgsales, "PS", "WiiU")
+# The p-value is 
+
+### Sub Question 3 - 2 #########################################################
+# Null Hypothesis: The sports genre is statistically significant in North American sales. 
+# Alternative Hypothesis: The sports genre is not statistically significant in North American sales.
+print("Question 3, Subquestion 2")
+
+# Filter vgsales to include only the relevant columns (Name, Genre, NA_Sales)
+drops.3 <- c("Rank","Year", "Platform", "Publisher", "Global_Sales", "EU_Sales", "JP_Sales", "Other_Sales")
+vgsales.filtered.3 <- vgsales[, !(names(vgsales) %in% drops.3)]
+
+# Rename Columns
+vgsales.filtered.3 <- vgsales.filtered.3 %>%
+  rename(
+    'Game Name' = Name,
+  )
+
+# CATEGORICAL REGRESSION MODEL FOR GENRE AND NORTH AMERICA SALES
+
+# fit the linear regression between different types of Genre and the vgsales dataframe we just filteres
+# R has chosen the "Action" Genre to be the base.
+fit <- lm(NA_Sales ~ Genre, data = vgsales.filtered.3)
+
+print(summary(fit)) # Gives regression summary output
+
+# scrap the Genre from the regression summary
+Genre = c(as.character(unlist(fit$xlevels)))
+# scrap the variable from the regression summary
+Variable = names(coefficients(fit))
+# scrap the Estimated Coefficient from the regression summary
+Estimated_Coefficients = as.numeric(coefficients(fit))
+# scrap the P-Value from the regression summary
+PValue = round(as.numeric(summary(fit)$coefficients[,  4]), digits = 5)
+
+# create a data frame to hold the important factors in the regression summary
+regression = data.frame(Variable, Genre, Estimated_Coefficients, PValue)
+print(regression)
+
+# Reference: "https://www.r-bloggers.com/2013/01/regression-on-categorical-variables/"
+# Graphs the NA Sales value for each Genre
+plt <- ggplot(vgsales, aes(x=Genre,y=NA_Sales, color=Genre)) +
+  geom_line(lwd=2) +
+  labs(x="Genre", y="North American Sales", title="Genre vs North American Sales")
+print(plt)
+
