@@ -401,8 +401,9 @@ getSeasonScores <- function(topGames) {
   return (stats)
 }
 
-#Plotting Season Stats
 seasonStats <- getSeasonScores(addSeason(topGameData))
+
+#Plotting Season Stats: Release Season vs Number of Games Released
 plt <- ggplot(seasonStats, aes(x=releaseSeason, y=count_games)) +
   geom_bar(aes(fill = count_games), position = "dodge", stat="identity", width=0.5) +
   ylim(0, 4000) +
@@ -412,22 +413,17 @@ print(plt)
 seasonStats <- within(seasonStats, rm("metaScore", "userScore", "reviewers", "count_games"))
 seasonStats <- seasonStats %>% rename("Mean Metascore" = meanMetaScore, "Mean User Score" = meanUserScore)
 seasonPlottingData <- gather(seasonStats, variable, value, -releaseSeason)
-plt <- ggplot(seasonPlottingData, aes(x=releaseSeason, y=value)) +
-  geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) +
-  ylim(0, 10) +
-  guides(fill=guide_legend(title="Score Type")) +
-  labs(x="Release Season", y="Mean Score", title="Mean scores for each Release Season")
-print(plt)
 
-plt <- ggplot(seasonPlottingData, aes(x=releaseSeason, y=value)) +
+#Plotting Season Stats: Release Season vs Avg Score in that Season
+plt2 <- ggplot(seasonPlottingData, aes(x=releaseSeason, y=value)) +
   geom_bar(aes(fill = variable), position = "dodge", stat="identity", width=0.5) +
   ylim(0, 10) +
   guides(fill=guide_legend(title="Score Type")) +
   labs(x="Release Season", y="Mean Score", title="Mean scores for each Release Season")
-print(plt)
+print(plt2)
 
 #Testing Significance of Release Season as a predictor of score
-# We get the full regression model, then one without release season, then perform anove
+# We get the full regression model, then one without release season, then perform anova
 seasonData <- topGameData
 seasonData <- addSeason(seasonData)
 explodedSeason <- seasonData %>% rowwise() %>% mutate(genres = genres[[1]], publishers = publishers[[1]])
