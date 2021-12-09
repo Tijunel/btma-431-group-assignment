@@ -594,6 +594,9 @@ vgsales.filtered.3 <- vgsales.filtered.3 %>%
 
 # CATEGORICAL REGRESSION MODEL FOR GENRE AND NORTH AMERICA SALES
 
+# change the base level to be Sports
+vgsales.filtered.3$Genre <- relevel(factor(vgsales.filtered.3$Genre), ref = "Sports")
+
 # fit the linear regression between different types of Genre and the vgsales dataframe we just filteres
 # R has chosen the "Action" Genre to be the base.
 fit <- lm(NA_Sales ~ Genre, data = vgsales.filtered.3)
