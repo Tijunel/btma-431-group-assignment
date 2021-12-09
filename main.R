@@ -387,6 +387,8 @@ print(anova(fullModel, modelWithoutGenre))
 ### Sub Question 2-1 ########################################################
 #' Null Hypothesis: Game review scores and their release seasons are independent.
 #' Alternative Hypothesis: Game review scores and their release seasons are not independent.
+
+# addSeason algorithm from: https://stackoverflow.com/questions/9500114/find-which-season-a-particular-date-belongs-to
 addSeason <- function(topGames) {
   seasonDate <- as.Date(strftime(topGames$releaseDate, format = "2012-%m-%d"))
   winter <- as.Date("2012-12-21", format = "%Y-%m-%d") # Winter Solstice
